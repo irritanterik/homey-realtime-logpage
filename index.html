@@ -11,14 +11,19 @@
 <body>
   <div class=container-fluid>
     <h2>Realtime Homey logger</h2>
-    <p>Fired socket.io events on <code>realtime/app/app-id</code>, <code>realtime/manager/devices</code>, <code>realtime/device/device-id</code>, <code>realtime/manager/flow</code> and <code>realtime/manager/insights</code> are shown here as they occur.</p>
+    <p>Fired socket.io events on <code>realtime/app/app-id</code>, <code>realtime/manager/devices</code>, <code>realtime/device/device-id</code>, <code>realtime/manager/flow</code> etc, etc are shown here as they occur.</p>
     <div class="panel panel-default">
-      <div class="panel-body">Enable or disable:&nbsp;
+      <div class="panel-body small">Enable or disable:&nbsp;
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="appsManager" checked>app manager</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="apps" checked>apps</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="deviceManager" checked>device manager</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="devices" checked>devices</label>
-        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="flow" checked>flow</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="flow" checked>flow testing</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="geolocation" checked>geolocation</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="insights" checked>insights</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="ledring" checked>ledring</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="speechInput" checked>speech-input</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="speechOutput" checked>speech-output</label>
       </div>
     </div>
     <table id="logs" class="table table-condensed" width=100%>
@@ -40,9 +45,6 @@
   var ip = '0.0.0.0' // Put your ip here
   var bearer_token = 'your token' // Put your bearer token here
 
-    var ip = '192.168.0.220'
-    var bearer_token = '8ad379c8e22fc95b1e98f83ec7b5e0284ac95d78'
-
   var devices = []
   var apps = []
   var setting = {}
@@ -53,11 +55,16 @@
 
   function optionsChanged () {
     setting = {
+      appsManager: $('#appsManager').prop('checked'),
       apps: $('#apps').prop('checked'),
       deviceManager: $('#deviceManager').prop('checked'),
       devices: $('#devices').prop('checked'),
       flow: $('#flow').prop('checked'),
-      insights: $('#insights').prop('checked')
+      geolocation: $('#geolocation').prop('checked'),
+      insights: $('#insights').prop('checked'),
+      ledring: $('#ledring').prop('checked'),
+      speechInput: $('#speechInput').prop('checked'),
+      speechOutput: $('#speechOutput').prop('checked')
     }
 
     $.each(setting, function (category) {
@@ -69,12 +76,16 @@
     })
   }
 
+  String.prototype.capitalizeFirstLetter = function() {
+      return this.charAt(0).toUpperCase() + this.slice(1);
+  }
+
   function addLogEntry (event, data, category, optionalStyle) {
     if (!data) data = ''
     var html = '<tr class="logentry ' + category
     if (optionalStyle) html += ' ' + optionalStyle
     html += '"><td class="datetime small text-nowrap">' + new Date().toISOString() + '</td>'
-    html += '<td class="event small">' + event + '</td>'
+    html += '<td class="event small">' + event.capitalizeFirstLetter() + '</td>'
     html += '<td class="data small text-muted">' + (!data ? '' : JSON.stringify(data)) + '</td></tr>'
     $('table#logs tbody tr:first').before(html)
 
@@ -102,7 +113,6 @@
       var args = packet.data || []
       console.log('***', 'realtime/manager/devices/', packet.data[0], packet.data[1].device_id, packet.data[1].message, packet)
       addLogEntry(getDeviceNameById(packet.data[1].device_id), packet.data[0], 'deviceManager', 'danger')
-      _onevent.call(socket, packet)
     }
   }
 
@@ -149,54 +159,54 @@
     })
   }
 
-  function listenFlowEditor () {
-    var socketExp = io.connect('http://' + ip + '/realtime/manager/flow/', {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
-    var _onevent = socketExp.onevent
-    socketExp.onevent = function (packet) { //Override incoming socket events
-      var args = packet.data || []
-      console.log('***', 'realtime/manager/flows/', packet.data[0], packet.data[1], packet)
-      addLogEntry('Flow: ' + packet.data[0], packet.data[1], 'flow')
-      _onevent.call(socketExp, packet)
-    }
-  }
-
-  function listenInsights () {
-    var socketExp = io.connect('http://' + ip + '/realtime/manager/insights/', {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
-    var _onevent = socketExp.onevent
-    socketExp.onevent = function (packet) { //Override incoming socket events
-      var args = packet.data || []
-      console.log('***', 'realtime/manager/insights/', packet.data[0], packet.data[1], packet)
-      addLogEntry('Insights: ' + packet.data[0], packet.data[1], 'insights')
-      _onevent.call(socketExp, packet)
-    }
-  }
-
-  function findSocket (namespace) {
-    // try this to validate new namespaces
-    var socket = io.connect('http://' + ip + namespace , {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
-    var _onevent = socket.onevent
-    var _emit = socket.emit
+  function listenOn (namespace, category) {
+    var socket = io.connect('http://' + ip + namespace, {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
     socket.onevent = function (packet) { //Override incoming socket events
       var args = packet.data || []
-      console.log('***', 'event', args, packet)
-      _onevent.call(socket, packet)
+      console.log('***', namespace, packet.data[0], packet.data[1], packet)
+      addLogEntry(category + ': ' + packet.data[0], packet.data[1], category)
     }
+  }
 
-    socket.emit = function () { //Override outgoing
-        console.log('***', 'emit', arguments)
-        _emit.apply(socket, arguments)
+  var newSocket
+  function findSocket (namespace) {
+    // try this to validate new namespaces
+    newSocket = io.connect('http://' + ip + namespace , {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
+    var _onevent = newSocket.onevent
+    var _emit = newSocket.emit
+    newSocket.onevent = function (packet) { //Override incoming socket events
+      var args = packet.data || []
+      console.log('***', 'event', args, packet)
+      _onevent.call(newSocket, packet)
+      alert('event on findSocket ' + namespace + '!')
+    }
+    newSocket.emit = function () { //Override outgoing
+      console.log('***', 'emit', arguments)
+      _emit.apply(newSocket, arguments)
     }
   }
 
   function listenToAll () {
     optionsChanged()
+    listenOn('/realtime/manager/apps/', 'appsManager')
+    listenApps()
     listenManagerDevices()
     listenDevices()
-    listenInsights()
-    listenApps()
-    listenFlowEditor()
-    // findSocket('/realtime/flows/')
+    listenOn('/realtime/manager/flow/', 'flow')
+    listenOn('/realtime/manager/geolocation/', 'geolocation')
+    listenOn('/realtime/manager/insights/', 'insights')
+    listenOn('/realtime/manager/ledring/', 'ledring')
+    listenOn('/realtime/manager/speech-output/', 'speechOutput')
+    listenOn('/realtime/manager/speech-input/', 'speechInput')
   }
+
+  // findSocket('/') // working, but no events
+  // findSocket('/realtime/manager/devkit/') // ignored
+  // findSocket('/realtime/manager/settings/') // nothing here
+  // findSocket('/realtime/manager/speaker/') // nothing here
+  // findSocket('/realtime/manager/system/') // nothing here
+  // findSocket('/realtime/manager/users/') // nothing here
+  // findSocket('/realtime/wireless/zwave/') // nothing here
 
   listenToAll()
 </script>
