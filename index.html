@@ -1,0 +1,201 @@
+<html>
+<head>
+  <title>Realtime Homey Logger</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.5/socket.io.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
+</head>
+<body>
+  <div class=container-fluid>
+    <h2>Realtime Homey logger</h2>
+    <p>Fired socket.io events on <code>realtime/manager/devices</code>, <code>realtime/device/device-id</code>, <code>realtime/app/app-id</code> and <code>realtime/manager/flow</code> are shown here as they occur.</p>
+    <div class="panel panel-default">
+      <div class="panel-body">Enable or disable:&nbsp;
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="apps" checked>apps</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="deviceManager" checked>device manager</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="devices" checked>devices</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="flow" checked>flow</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="insights" checked>insights</label>
+      </div>
+    </div>
+    <table id="logs" class="table table-condensed" width=100%>
+      <thead>
+        <tr>
+          <th class="text-nowrap datetime">Date and time</th>
+          <th class="text-nowrap event">Event / Device / App</th>
+          <th class="text-nowrap data">Data</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class=logentry>
+          <td class="event small" colspan=3>Starting log...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <script>
+  var ip = '0.0.0.0' // Put your ip here
+  var bearer_token = 'your token' // Put your bearer token here
+
+  var devices = []
+  var apps = []
+  var setting = {}
+
+  if (ip === '0.0.0.0') alert('Configure your Homey IP in this script...')
+  if (bearer_token === 'your token') alert('Configure your Bearer token in this script...')
+  $.ajaxSetup({headers: {Authorization: 'Bearer ' + bearer_token}})
+
+  function optionsChanged () {
+    setting = {
+      apps: $('#apps').prop('checked'),
+      deviceManager: $('#deviceManager').prop('checked'),
+      devices: $('#devices').prop('checked'),
+      flow: $('#flow').prop('checked'),
+      insights: $('#insights').prop('checked')
+    }
+
+    $.each(setting, function (category) {
+      if (setting[category]) {
+        $('.' + category).show()
+      } else {
+        $('.' + category).hide()
+      }
+    })
+  }
+
+  function addLogEntry (event, data, category, optionalStyle) {
+    if (!data) data = ''
+    var html = '<tr class="logentry ' + category
+    if (optionalStyle) html += ' ' + optionalStyle
+    html += '"><td class="datetime small text-nowrap">' + new Date().toISOString() + '</td>'
+    html += '<td class="event small">' + event + '</td>'
+    html += '<td class="data small text-muted">' + (!data ? '' : JSON.stringify(data)) + '</td></tr>'
+    $('table#logs tbody tr:first').before(html)
+
+    if (setting[category]) {
+      $('.' + category).show()
+    } else {
+      $('.' + category).hide()
+    }
+  }
+
+  function getDeviceNameById (searchId) {
+    var result = null
+    devices.forEach(function (device, index) {
+      if (device.id === searchId) {
+        result = device.name
+      }
+    })
+    return result
+  }
+
+  function listenManagerDevices () {
+    var socket = io.connect('http://' + ip + '/realtime/manager/devices/', {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
+    var _onevent = socket.onevent
+    socket.onevent = function (packet) { //Override incoming socket events
+      var args = packet.data || []
+      console.log('***', 'realtime/manager/devices/', packet.data[0], packet.data[1].device_id, packet.data[1].message, packet)
+      addLogEntry(getDeviceNameById(packet.data[1].device_id), packet.data[0], 'deviceManager', 'danger')
+      _onevent.call(socket, packet)
+    }
+  }
+
+  function listenDevices () {
+    // get all devices and handels all events on /realtime/device/device_id/
+    $.getJSON('http://' + ip + '/api/manager/devices/', function(data) {
+      addLogEntry('Start device listener', 'Will listen to realtime events of ' + data.result.length + ' devices', 'devices')
+      $.each(data.result, function (index, resultDevice) {
+        var device = {
+          id: resultDevice.id,
+          name: resultDevice.name
+        }
+        devices.push(device)
+        var deviceSocket = io.connect('http://' + ip + '/realtime/device/' + device.id + '/', {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
+        var _onevent = deviceSocket.onevent
+        deviceSocket.onevent = function (packet) { //Override incoming socket events
+          var args = packet.data || []
+          addLogEntry(device.name, args, 'devices')
+          _onevent.call(deviceSocket, packet)
+        }
+      })
+    })
+  }
+
+  function listenApps () {
+    // get all apps and handels all events on /realtime/app/app_id/
+    $.getJSON('http://' + ip + '/api/manager/apps/', function(data) {
+      addLogEntry('Start app listener', 'Will listen to realtime events of ' + data.result.length + ' apps', 'apps')
+      $.each(data.result, function (index, resultApp) {
+        var app = {
+          id: resultApp.id,
+          name: resultApp.name.en
+        }
+        apps.push(app)
+        var appSocket = io.connect('http://' + ip + '/realtime/app/' + app.id + '/', {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
+        var _onevent = appSocket.onevent
+        appSocket.onevent = function (packet) { //Override incoming socket events
+          var args = packet.data || []
+          console.log('*** realtime/app', 'onevent', args, packet, app)
+          addLogEntry(app.name, args, 'apps')
+          _onevent.call(appSocket, packet)
+        }
+      })
+    })
+  }
+
+  function listenFlowEditor () {
+    var socketExp = io.connect('http://' + ip + '/realtime/manager/flow/', {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
+    var _onevent = socketExp.onevent
+    socketExp.onevent = function (packet) { //Override incoming socket events
+      var args = packet.data || []
+      console.log('***', 'realtime/manager/flows/', packet.data[0], packet.data[1], packet)
+      addLogEntry('Flow: ' + packet.data[0], packet.data[1], 'flow')
+      _onevent.call(socketExp, packet)
+    }
+  }
+
+  function listenInsights () {
+    var socketExp = io.connect('http://' + ip + '/realtime/manager/insights/', {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
+    var _onevent = socketExp.onevent
+    socketExp.onevent = function (packet) { //Override incoming socket events
+      var args = packet.data || []
+      console.log('***', 'realtime/manager/insights/', packet.data[0], packet.data[1], packet)
+      addLogEntry('Insights: ' + packet.data[0], packet.data[1], 'insights')
+      _onevent.call(socketExp, packet)
+    }
+  }
+
+  function findSocket (namespace) {
+    // try this to validate new namespaces
+    var socket = io.connect('http://' + ip + namespace , {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
+    var _onevent = socket.onevent
+    var _emit = socket.emit
+    socket.onevent = function (packet) { //Override incoming socket events
+      var args = packet.data || []
+      console.log('***', 'event', args, packet)
+      _onevent.call(socket, packet)
+    }
+
+    socket.emit = function () { //Override outgoing
+        console.log('***', 'emit', arguments)
+        _emit.apply(socket, arguments)
+    }
+  }
+
+  function listenToAll () {
+    optionsChanged()
+    listenManagerDevices()
+    listenDevices()
+    listenInsights()
+    listenApps()
+    listenFlowEditor()
+    // findSocket('/realtime/flows/')
+  }
+
+  listenToAll()
+</script>
+</body>
+</html>
