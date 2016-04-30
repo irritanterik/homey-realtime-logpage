@@ -11,7 +11,7 @@
 <body>
   <div class=container-fluid>
     <h2>Realtime Homey logger</h2>
-    <p>Fired socket.io events on <code>realtime/manager/devices</code>, <code>realtime/device/device-id</code>, <code>realtime/app/app-id</code> and <code>realtime/manager/flow</code> are shown here as they occur.</p>
+    <p>Fired socket.io events on <code>realtime/app/app-id</code>, <code>realtime/manager/devices</code>, <code>realtime/device/device-id</code>, <code>realtime/manager/flow</code> and <code>realtime/manager/insights</code> are shown here as they occur.</p>
     <div class="panel panel-default">
       <div class="panel-body">Enable or disable:&nbsp;
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="apps" checked>apps</label>
@@ -39,6 +39,9 @@
   <script>
   var ip = '0.0.0.0' // Put your ip here
   var bearer_token = 'your token' // Put your bearer token here
+
+    var ip = '192.168.0.220'
+    var bearer_token = '8ad379c8e22fc95b1e98f83ec7b5e0284ac95d78'
 
   var devices = []
   var apps = []
