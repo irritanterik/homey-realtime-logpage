@@ -18,6 +18,7 @@
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="apps" checked>apps</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="deviceManager" checked>device manager</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="devices" checked>devices</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="zwave" checked>zwave</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="flow" checked>flow testing</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="geolocation" checked>geolocation</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="insights" checked>insights</label>
@@ -45,6 +46,7 @@
   var ip = '0.0.0.0' // Put your ip here
   var bearer_token = 'your token' // Put your bearer token here
 
+
   var devices = []
   var apps = []
   var setting = {}
@@ -59,6 +61,7 @@
       apps: $('#apps').prop('checked'),
       deviceManager: $('#deviceManager').prop('checked'),
       devices: $('#devices').prop('checked'),
+      zwave: $('#zwave').prop('checked'),
       flow: $('#flow').prop('checked'),
       geolocation: $('#geolocation').prop('checked'),
       insights: $('#insights').prop('checked'),
@@ -198,6 +201,7 @@
     listenOn('/realtime/manager/ledring/', 'ledring')
     listenOn('/realtime/manager/speech-output/', 'speechOutput')
     listenOn('/realtime/manager/speech-input/', 'speechInput')
+    listenOn('/realtime/wireless/zwave/', 'zwave')
   }
 
   // findSocket('/') // working, but no events
@@ -206,7 +210,7 @@
   // findSocket('/realtime/manager/speaker/') // nothing here
   // findSocket('/realtime/manager/system/') // nothing here
   // findSocket('/realtime/manager/users/') // nothing here
-  // findSocket('/realtime/wireless/zwave/') // nothing here
+  // findSocket('/realtime/wireless/zwave/')
 
   listenToAll()
 </script>
