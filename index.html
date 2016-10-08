@@ -46,7 +46,6 @@
   var ip = '0.0.0.0' // Put your ip here
   var bearer_token = 'your token' // Put your bearer token here
 
-
   var devices = []
   var apps = []
   var setting = {}
@@ -121,8 +120,8 @@
 
   function listenDevices () {
     // get all devices and handels all events on /realtime/device/device_id/
-    $.getJSON('http://' + ip + '/api/manager/devices/', function(data) {
-      addLogEntry('Start device listener', 'Will listen to realtime events of ' + data.result.length + ' devices', 'devices')
+    $.getJSON('http://' + ip + '/api/manager/devices/device/', function(data) {
+      addLogEntry('Start device listener', 'Will listen to realtime events of ' + Object.keys(data.result).length + ' devices', 'devices')
       $.each(data.result, function (index, resultDevice) {
         var device = {
           id: resultDevice.id,
@@ -142,8 +141,8 @@
 
   function listenApps () {
     // get all apps and handels all events on /realtime/app/app_id/
-    $.getJSON('http://' + ip + '/api/manager/apps/', function(data) {
-      addLogEntry('Start app listener', 'Will listen to realtime events of ' + data.result.length + ' apps', 'apps')
+    $.getJSON('http://' + ip + '/api/manager/apps/app', function(data) {
+      addLogEntry('Start app listener', 'Will listen to realtime events of ' + Object.keys(data.result).length + ' apps', 'apps')
       $.each(data.result, function (index, resultApp) {
         var app = {
           id: resultApp.id,
@@ -193,15 +192,15 @@
     optionsChanged()
     listenOn('/realtime/manager/apps/', 'appsManager')
     listenApps()
-    listenManagerDevices()
     listenDevices()
+    // listenManagerDevices()
     listenOn('/realtime/manager/flow/', 'flow')
     listenOn('/realtime/manager/geolocation/', 'geolocation')
     listenOn('/realtime/manager/insights/', 'insights')
     listenOn('/realtime/manager/ledring/', 'ledring')
     listenOn('/realtime/manager/speech-output/', 'speechOutput')
     listenOn('/realtime/manager/speech-input/', 'speechInput')
-    listenOn('/realtime/wireless/zwave/', 'zwave')
+    // listenOn('/realtime/wireless/zwave/', 'zwave')
   }
 
   // findSocket('/') // working, but no events
