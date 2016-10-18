@@ -18,13 +18,15 @@
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="apps" checked>apps</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="deviceManager" checked>device manager</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="devices" checked>devices</label>
-        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="zwave" checked>zwave</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="flow" checked>flow testing</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="geolocation" checked>geolocation</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="insights" checked>insights</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="ledring" checked>ledring</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="notifications" checked>notifications</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="presence" checked>presence</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="speechInput" checked>speech-input</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="speechOutput" checked>speech-output</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="zwave" checked>zwave</label>
       </div>
     </div>
     <table id="logs" class="table table-condensed" width=100%>
@@ -60,13 +62,15 @@
       apps: $('#apps').prop('checked'),
       deviceManager: $('#deviceManager').prop('checked'),
       devices: $('#devices').prop('checked'),
-      zwave: $('#zwave').prop('checked'),
       flow: $('#flow').prop('checked'),
       geolocation: $('#geolocation').prop('checked'),
       insights: $('#insights').prop('checked'),
       ledring: $('#ledring').prop('checked'),
+      notifications: $('#notifications').prop('checked'),
+      presence: $('#presence').prop('checked'),
       speechInput: $('#speechInput').prop('checked'),
-      speechOutput: $('#speechOutput').prop('checked')
+      speechOutput: $('#speechOutput').prop('checked'),
+      zwave: $('#zwave').prop('checked')
     }
 
     $.each(setting, function (category) {
@@ -171,6 +175,9 @@
       var args = packet.data || []
       console.log('***', namespace, packet.data[0], packet.data[1], packet)
       addLogEntry(category + ': ' + packet.data[0], packet.data[1], category)
+      // if (category === 'appsManager' && packet.data[0] === 'ready') {
+        // addLogEntry('Start app listener for app', packet.data[1], 'apps')
+      // }
     }
   }
 
@@ -205,6 +212,8 @@
     listenOn('/realtime/manager/speech-output/', 'speechOutput')
     listenOn('/realtime/manager/speech-input/', 'speechInput')
     listenOn('/realtime/manager/zwave/', 'zwave')
+    listenOn('/realtime/manager/notifications/', 'notifications')
+    listenOn('/realtime/manager/presence/', 'presence')
   }
 
   // findSocket('/') // working, but no events
@@ -214,6 +223,11 @@
   // findSocket('/realtime/manager/system/') // nothing here
   // findSocket('/realtime/manager/users/') // nothing here
   // findSocket('/realtime/wireless/zwave/')
+
+//OK!
+  // findSocket('/realtime/manager/notifications/')
+  // findSocket('/realtime/manager/presence/')
+
 
   listenToAll()
 </script>
