@@ -3,7 +3,7 @@
   <title>Realtime Homey Logger</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.5/socket.io.min.js"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.5.0/socket.io.min.js"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
   <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
@@ -111,6 +111,9 @@
   function listenManagerDevices () {
     var socket = io.connect('http://' + ip + '/realtime/manager/devices/', {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
     var _onevent = socket.onevent
+    socket.on('disconnect', function() {
+      console.log('Got disconnect!')
+    })
     socket.onevent = function (packet) { //Override incoming socket events
       var args = packet.data || []
       console.log('***', 'realtime/manager/devices/', packet.data[0], packet.data[1].device_id, packet.data[1].message, packet)
@@ -129,6 +132,7 @@
         }
         devices.push(device)
         var deviceSocket = io.connect('http://' + ip + '/realtime/device/' + device.id + '/', {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
+        console.log('http://' + ip + '/realtime/device/' + device.id + '/')
         var _onevent = deviceSocket.onevent
         deviceSocket.onevent = function (packet) { //Override incoming socket events
           var args = packet.data || []
@@ -193,7 +197,7 @@
     listenOn('/realtime/manager/apps/', 'appsManager')
     listenApps()
     listenDevices()
-    // listenManagerDevices()
+    listenManagerDevices()
     listenOn('/realtime/manager/flow/', 'flow')
     listenOn('/realtime/manager/geolocation/', 'geolocation')
     listenOn('/realtime/manager/insights/', 'insights')
