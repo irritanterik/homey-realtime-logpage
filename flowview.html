@@ -20,6 +20,7 @@
   <div class=container-fluid>
     <h1>Homey flow viewer</h1>
     <div id="flows">
+      <span id="wait">Wait for it...</span>
     </div>
     <div class="hide">
       <div class="template_flow">
@@ -133,11 +134,17 @@
     $(newCard).find('[data=card_type_' + app.uriObj.type + ']').html(app.uriObj.name)
     if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card))
     if (card.delay && card.delay.number > 0) $(newCard).find('[data=card_args]').html('<i>delay</i>: ' + (card.delay.number * card.delay.multiplier) + ' seconds')
-    if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: <kbd>' + (card.droptoken) + '</kbd>')
+    if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: <code>' + (card.droptoken) + '</code>')
 
+    if (definitions.tokens) {
+      var tokens = '<i>tokens</i>: '
+      definitions.tokens.forEach(token => {
+        tokens += '<code>' + (token.name) + '</code> '
+      })
+      $(newCard).find('[data=card_droptoken]').html(tokens)
+    }
     return newCard
   }
-
 
   function formatFolder (id) {
     var result = folders[id].title
@@ -150,7 +157,7 @@
     Object.keys(card.args).forEach(function (argument) {
       output += '<i>' + argument + '</i>: ' + JSON.stringify(card.args[argument]) + '<br>'
     })
-    output = output.replace('[[', '<kbd>').replace(']]', '</kbd>')
+    output = output.replace('[[', '<code>').replace(']]', '</code>')
     return output
   }
 
@@ -260,6 +267,7 @@
       if (flow.folder) flow.order = folderOrder(flow.folder) + flow.order
     })
     flows.sort((a, b) => (a.order > b.order ? 1 : -1))
+    $('#wait').remove()
     flows.forEach(flow => {
       addFlow(flow)
     })
