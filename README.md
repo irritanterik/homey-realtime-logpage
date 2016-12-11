@@ -1,4 +1,4 @@
-# Realtime Homey Logger
+# Realtime Homey Logger and Homey Flow Viewer
 
 Add your local homey ip-address and bearer token in the index.html and flowview.html file and open it in a browser.
 
