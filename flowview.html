@@ -61,6 +61,8 @@
           <span class="label label-primary pull-right" data="card_type_manager"></span>
           <span class="text-nowrap"><strong data="card_title"></strong></span><br>
           <span class="text-muted" data="card_args"></span>
+          <span class="text-muted" data="card_delay"></span>
+          <span class="text-muted" data="card_droptoken"></span>
         </div>
       </div>
     </div>
@@ -130,12 +132,10 @@
 
     $(newCard).find('[data=card_type_' + app.uriObj.type + ']').html(app.uriObj.name)
     if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card))
+    if (card.delay && card.delay.number > 0) $(newCard).find('[data=card_args]').html('<i>delay</i>: ' + (card.delay.number * card.delay.multiplier) + ' seconds')
+    if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: <kbd>' + (card.droptoken) + '</kbd>')
 
     return newCard
-    if (card.delay) output += 'delay: ' + JSON.stringify(card.delay) + '<br>'
-    if (card.duration) output += 'duration: ' + JSON.stringify(card.duration) + '<br>'
-    output += '</div>'
-    return output
   }
 
 
@@ -150,6 +150,7 @@
     Object.keys(card.args).forEach(function (argument) {
       output += '<i>' + argument + '</i>: ' + JSON.stringify(card.args[argument]) + '<br>'
     })
+    output = output.replace('[[', '<kbd>').replace(']]', '</kbd>')
     return output
   }
 
