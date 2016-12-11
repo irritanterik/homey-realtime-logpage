@@ -1,0 +1,278 @@
+<html>
+<head>
+  <title>Homey Flow Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
+  <style>
+    .well {
+      margin-bottom: 5px;
+    }
+    .col-sm-5, .col-sm-2 {
+      padding-right: 5px;
+      padding-left: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class=container-fluid>
+    <h1>Homey flow viewer</h1>
+    <div id="flows">
+    </div>
+    <div class="hide">
+      <div class="template_flow">
+        <div class="panel panel-success" data="flow_panel">
+          <div class="panel-heading">
+            <div class="row">
+              <div class="col-sm-4" data="flow_path"></div>
+              <div class="col-sm-4 text-center"><b data="title"></b></div>
+              <div class="col-sm-4 text-right">
+                <span class="label label-default" data="label_disabled"></span>
+                <span class="label label-danger" data="label_broken"></span>
+              </div>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="row">
+              <div class="col-sm-2 small">
+                <div class="text-muted">Trigger</div>
+                <span data="cards_trigger"/>
+              </div>
+              <div class="col-sm-5 small">
+                <div class="text-muted">Conditions</div>
+                <span data="cards_condition"/>
+              </div>
+              <div class="col-sm-5 small">
+                <div class="text-muted">Actions</div>
+                <span data="cards_action"/>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="template_card">
+        <div class="well well-sm">
+          <span class="label label-danger" data="label_danger"></span>
+          <span class="label label-success pull-right" data="card_type_device"></span>
+          <span class="label label-info pull-right" data="card_type_app"></span>
+          <span class="label label-primary pull-right" data="card_type_manager"></span>
+          <span class="text-nowrap"><strong data="card_title"></strong></span><br>
+          <span class="text-muted" data="card_args"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+  var ip = '0.0.0.0' // Put your ip here
+  var bearer_token = 'your token' // Put your bearer token here
+
+  var devices = []
+  var cards
+  var folders
+  var flows
+
+  if (ip === '0.0.0.0') alert('Configure your Homey IP in this script...')
+  if (bearer_token === 'your token') alert('Configure your Bearer token in this script...')
+  $.ajaxSetup({headers: {Authorization: 'Bearer ' + bearer_token}})
+
+  String.prototype.capitalizeFirstLetter = function() {
+      return this.charAt(0).toUpperCase() + this.slice(1);
+  }
+
+  function addFlow (flow) {
+    var newFlow = $('.template_flow').clone()
+    $(newFlow).find('[data=title]').html(flow.title)
+    $(newFlow).find('[data=cards_trigger]').append(formatCard(flow.trigger, 'trigger').html())
+    $(newFlow).find('[data=cards_condition]').append(formatCards(flow.conditions, 'condition').html())
+    $(newFlow).find('[data=cards_action]').append(formatCards(flow.actions, 'action').html())
+    if (flow.folder) $(newFlow).find('[data=flow_path]').html('<i class="fa fa-folder-open" aria-hidden="true"></i> ' + formatFolder(flow.folder))
+    if (!flow.enabled) {
+      $(newFlow).find('[data=flow_panel]').removeClass("panel-success").addClass("panel-default")
+      $(newFlow).find('[data=label_disabled]').html("DISABLED")
+    }
+    if (flow.broken) {
+      $(newFlow).find('[data=flow_panel]').removeClass("panel-success").addClass("panel-default")
+      $(newFlow).find('[data=label_broken]').html("BROKEN")
+    }
+
+    $('#flows').append(newFlow.html())
+  }
+
+  function noCard () {
+    var noCard = $("<div />")
+    noCard.html('<br><span class="label label-danger">NO CARD</span>')
+    return noCard
+  }
+
+  function formatCards (cards, type) {
+    if (type === 'action' && cards.length === 0) return noCard()
+    var newCards = $("<div />")
+    cards.forEach(function (card) {
+      newCards.append(formatCard(card, type).html())
+    })
+    return newCards
+  }
+
+  function formatCard (card, type) {
+    if (isEmptyObject(card)) return noCard()
+    var newCard = $('.template_card').clone()
+    var definitions = getCard(card.uri, type, card.id)
+    var app = getApp(card.uri)
+
+    if (type === 'condition') {
+      $(newCard).find('[data=card_title]').html(conditionTitleParse(definitions.title.en, !card.inverted))
+    } else {
+      $(newCard).find('[data=card_title]').html(definitions.title.en)
+    }
+
+    $(newCard).find('[data=card_type_' + app.uriObj.type + ']').html(app.uriObj.name)
+    if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card))
+
+    return newCard
+    if (card.delay) output += 'delay: ' + JSON.stringify(card.delay) + '<br>'
+    if (card.duration) output += 'duration: ' + JSON.stringify(card.duration) + '<br>'
+    output += '</div>'
+    return output
+  }
+
+
+  function formatFolder (id) {
+    var result = folders[id].title
+    if (folders[id].folder) result = formatFolder(folders[id].folder) + " > " + result
+    return result
+  }
+
+  function formatArgs (card) {
+    var output = ''
+    Object.keys(card.args).forEach(function (argument) {
+      output += '<i>' + argument + '</i>: ' + JSON.stringify(card.args[argument]) + '<br>'
+    })
+    return output
+  }
+
+  function isEmptyObject (obj) {
+    return Object.getOwnPropertyNames(obj).length === 0
+  }
+
+
+// ////////////////////////////////// HOMEY COPIED FUNCTIONS
+  function conditionTitleParse (e, t) {
+    var a = e.match(/\!\{\{([^]+)\}\}/g);
+    return null === a ? e : (a.forEach(function(a) {
+        var n = a;
+        if ("!" == a.charAt(0) && (a = a.substring(1)),
+        a = a.replace("{{", ""),
+        a = a.replace("}}", ""),
+        a = a.split("|"),
+        t ? a = a[0] : ("" != a[0] && (a[0] = "&nbsp;" + a[0]),
+        "" != a[1] && (a[1] = "&nbsp;" + a[1]),
+        a = '<span class="inverter inverter-off">' + a[0] + '</span><span class="inverter inverter-on">' + a[1] + "</span>"),
+        e = e.replace(n, a),
+        !t) {
+            var o = e.indexOf(a);
+            o > 0 && (e = spliceSlice(e, o - 1, 1))
+        }
+    }),
+    e)
+  }
+
+  function spliceSlice(e, t, a, n) {
+      return e.slice(0, t) + (n || "") + e.slice(t + a)
+  }
+// ////////////////////////////////// HOMEY COPIED FUNCTIONS
+
+  function getDeviceNameById (searchId) {
+    var result = null
+    devices.forEach(function (device, index) {
+      if (device.id === searchId) {
+        result = device.name
+      }
+    })
+    return result
+  }
+
+  function getApp (uri) {
+    return cards.filter(app => app.uri === uri)[0]
+  }
+
+  function getCard (uri, type, id) {
+    return getApp(uri).cards[type].filter(card => card.id === id)[0]
+  }
+
+
+  function loadFolders (callback) {
+    $.getJSON('http://' + ip + '/api/manager/flow/folder/', function(data) {
+      folders = data.result
+      callback()
+    })
+  }
+
+  function loadCards (callback) {
+    $.getJSON('http://' + ip + '/api/manager/flow/card/', function(data) {
+      cards = data.result
+      callback()
+    })
+  }
+
+  function loadDevices (callback) {
+    // get all devices and handels all events on /realtime/device/device_id/
+    $.getJSON('http://' + ip + '/api/manager/devices/device/', function(data) {
+      $.each(data.result, function (index, resultDevice) {
+        var device = {
+          id: resultDevice.id,
+          name: resultDevice.name
+        }
+        devices.push(device)
+      })
+      callback()
+    })
+  }
+
+  function loadFlows (callback) {
+    // get all flow folders
+    flows = []
+    $.getJSON('http://' + ip + '/api/manager/flow/flow/', function(data) {
+      // flows = data.result  // .sort((a, b) => (a.order > b.order ? 1 : -1))
+      $.each(data.result, function (index, flow) {
+        flows.push(flow)
+      })
+      callback()
+    })
+  }
+
+  function folderOrder (id) {
+    var order = formatOrderNumber(folders[id].order) + '|'
+    if (folders[id].folder) order = folderOrder(folders[id].folder) + order
+    return order
+  }
+
+  function formatOrderNumber (order) {
+    return ('00000' + order).slice(-5)
+  }
+
+  function showFlows () {
+    flows.forEach(flow => {
+      flow.order = formatOrderNumber(flow.order)
+      if (flow.folder) flow.order = folderOrder(flow.folder) + flow.order
+    })
+    flows.sort((a, b) => (a.order > b.order ? 1 : -1))
+    flows.forEach(flow => {
+      addFlow(flow)
+    })
+  }
+
+  loadDevices(() => {
+    loadFolders(() => {
+      loadCards(() => {
+        loadFlows(() => {
+          showFlows()
+        })
+      })
+    })
+  })
+</script>
+</body>
+</html>
