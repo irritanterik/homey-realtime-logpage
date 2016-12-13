@@ -1,10 +1,12 @@
 <html>
 <head>
-  <title>Homey Flow Viewer</title>
+  <title>Flow Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.9/js/bootstrap-dialog.min.js"></script>
   <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.9/css/bootstrap-dialog.min.css" rel="stylesheet" type="text/css" />
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
   <style>
     .well {
@@ -19,6 +21,10 @@
 <body>
   <div class=container-fluid>
     <h1>Homey flow viewer</h1>
+    <div class="form-group has-feedback">
+        <input id="search" type="text" class="form-control" placeholder="Search" onKeyDown="search()" onKeyUp="search()" onChange="search()"/>
+        <i class="glyphicon glyphicon-search form-control-feedback"></i>
+    </div>
     <div id="flows">
       <span id="wait">Wait for it...</span>
     </div>
@@ -32,6 +38,9 @@
               <div class="col-sm-4 text-right">
                 <span class="label label-default" data="label_disabled"></span>
                 <span class="label label-danger" data="label_broken"></span>
+                <button class="btn btn-default" data="edit_btn"   data-toggle="tooltip" title="Rename & Move"><i class="fa fa-pencil"></i></button>
+                <button class="btn btn-default" data="copy_btn"   data-toggle="tooltip" title="Copy"><i class="fa fa-clone"></i></button>
+                <button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="Delete"><i class="fa fa-remove"></i></button>
               </div>
             </div>
           </div>
@@ -66,6 +75,25 @@
           <span class="text-muted" data="card_droptoken"></span>
         </div>
       </div>
+
+      <div class="dialog_copy form-group">
+        <label for="copyName">New name</label>
+        <input id="copyName" class="form-control" type="text"  value="">
+        <label for="copyFolder">Copy to folder</label>
+        <select id="copyFolder" class="form-control">
+          <option value="false">None</option>
+        </select>
+      </div>
+
+      <div class="dialog_edit form-group">
+        <label for="editName">Name</label>
+        <input id="editName" class="form-control" type="text"  value="">
+        <label for="editFolder">Folder</label>
+        <select id="editFolder" class="form-control">
+          <option value="false">None</option>
+        </select>
+      </div>
+
     </div>
   </div>
   <script>
@@ -79,7 +107,10 @@
 
   if (ip === '0.0.0.0') alert('Configure your Homey IP in this script...')
   if (bearer_token === 'your token') alert('Configure your Bearer token in this script...')
-  $.ajaxSetup({headers: {Authorization: 'Bearer ' + bearer_token}})
+  $.ajaxSetup({
+    contentType : 'application/json',
+    headers: {Authorization: 'Bearer ' + bearer_token}
+  })
 
   String.prototype.capitalizeFirstLetter = function() {
       return this.charAt(0).toUpperCase() + this.slice(1);
@@ -87,10 +118,14 @@
 
   function addFlow (flow) {
     var newFlow = $('.template_flow').clone()
-    $(newFlow).find('[data=title]').html(flow.title)
+    $(newFlow).find('[data=flow_panel]').attr('flow_panel_id', flow.id)
+    $(newFlow).find('[data=title]').html(`<a href="http://${ip}/manager/flow/#${flow.id}" target=_new>${flow.title}</a>`)
     $(newFlow).find('[data=cards_trigger]').append(formatCard(flow.trigger, 'trigger').html())
     $(newFlow).find('[data=cards_condition]').append(formatCards(flow.conditions, 'condition').html())
     $(newFlow).find('[data=cards_action]').append(formatCards(flow.actions, 'action').html())
+    $(newFlow).find('[data=edit_btn]').attr('edit_btn_id', flow.id)
+    $(newFlow).find('[data=copy_btn]').attr('copy_btn_id', flow.id)
+    $(newFlow).find('[data=delete_btn]').attr('delete_btn_id', flow.id)
     if (flow.folder) $(newFlow).find('[data=flow_path]').html('<i class="fa fa-folder-open" aria-hidden="true"></i> ' + formatFolder(flow.folder))
     if (!flow.enabled) {
       $(newFlow).find('[data=flow_panel]').removeClass("panel-success").addClass("panel-default")
@@ -100,8 +135,10 @@
       $(newFlow).find('[data=flow_panel]').removeClass("panel-success").addClass("panel-danger")
       $(newFlow).find('[data=label_broken]').html("BROKEN")
     }
-
     $('#flows').append(newFlow.html())
+    $(`[edit_btn_id=${flow.id}]`).on('click', function () { editFlow(flow.id) })
+    $(`[copy_btn_id=${flow.id}]`).on('click', function () { copyFlow(flow.id) })
+    $(`[delete_btn_id=${flow.id}]`).on('click', function () { deleteFlow(flow.id) })
   }
 
   function noCard () {
@@ -210,6 +247,9 @@
     return getApp(uri).cards[type].filter(card => card.id === id)[0]
   }
 
+  function getFlow (id) {
+    return flows.filter(flow => flow.id === id)[0]
+  }
 
   function loadFolders (callback) {
     $.getJSON('http://' + ip + '/api/manager/flow/folder/', function(data) {
@@ -226,14 +266,9 @@
   }
 
   function loadDevices (callback) {
-    // get all devices and handels all events on /realtime/device/device_id/
     $.getJSON('http://' + ip + '/api/manager/devices/device/', function(data) {
       $.each(data.result, function (index, resultDevice) {
-        var device = {
-          id: resultDevice.id,
-          name: resultDevice.name
-        }
-        devices.push(device)
+        devices.push({id: resultDevice.id, name: resultDevice.name})
       })
       callback()
     })
@@ -271,6 +306,7 @@
     flows.forEach(flow => {
       addFlow(flow)
     })
+    $('[data-toggle="tooltip"]').tooltip()
   }
 
   loadDevices(() => {
@@ -282,6 +318,157 @@
       })
     })
   })
+
+  function copyFlow (flowId) {
+    copyFlowDialog(flowId, function(newName, newFolder) {
+      if (newName) {
+        if (newFolder === 'false') newFolder = false
+        $.getJSON(`http://${ip}/api/manager/flow/flow/${flowId}`, function(data) {
+          if (data.status !== 200) return alert('Copy failure... getting existing flow')
+          var existingFlow = data.result
+          $.post(`http://${ip}/api/manager/flow/flow`, function(data) {
+            if (data.status !== 200) return alert('Copy failure... requesting new id')
+            var newFlow = existingFlow
+            newFlow.id = data.result.id
+            newFlow.title = newName
+            newFlow.folder = newFolder
+            newFlow.order = data.result.order
+            $.ajax({
+              url: `http://${ip}/api/manager/flow/flow/${newFlow.id}`,
+              type: 'PUT',
+              data: JSON.stringify(newFlow),
+              success: function(data) {
+                location.reload()
+              }
+            })
+          })
+        })
+      }
+    })
+  }
+
+  function deleteFlow (flowId) {
+    deleteFlowDialog(flowId, function(doDelete) {
+      if (!doDelete) return
+      $.ajax({
+        url: `http://${ip}/api/manager/flow/flow/${flowId}`,
+        type: 'DELETE',
+        success: function(data) {
+          $(`[flow_panel_id=${flowId}]`).slideUp(1000)
+        }
+      })
+    })
+  }
+
+  function editFlow (flowId) {
+    editFlowDialog(flowId, function(newName, newFolder) {
+      if (newName) {
+        if (newFolder === 'false') newFolder = false
+        $.getJSON(`http://${ip}/api/manager/flow/flow/${flowId}`, function(data) {
+          if (data.status !== 200) return alert('Edit failure... getting existing flow')
+          var existingFlow = data.result
+          existingFlow.title = newName
+          existingFlow.folder = newFolder
+          $.ajax({
+            url: `http://${ip}/api/manager/flow/flow/${flowId}`,
+            type: 'PUT',
+            data: JSON.stringify(existingFlow),
+            success: function(data) {
+              location.reload()
+            }
+          })
+        })
+      }
+    })
+  }
+
+  function copyFlowDialog (flowId, callback) {
+    var message = $('.dialog_copy').clone()
+    $(message).find('[id=copyName]').attr('value', `${getFlow(flowId).title} (copy)`)
+    $.each(folders, (id, folder) => {
+      $(message).find('[id=copyFolder]').append($("<option></option>").attr("value", id).text(folder.title))
+    })
+    $(message).find('[id=copyFolder]').val(getFlow(flowId).folder.toString())
+    BootstrapDialog.show({
+      title: 'Copy flow',
+      message: message,
+      buttons: [
+        {
+          label: 'Cancel',
+          action: function (dialogRef) {
+            dialogRef.close()
+            callback(false)
+          }
+        },{
+          label: 'Copy',
+          action: function (dialogRef) {
+            var newName = dialogRef.getModalBody().find('[id=copyName]').val()
+            var newFolder = dialogRef.getModalBody().find('[id=copyFolder]').val()
+            dialogRef.close()
+            callback(newName, newFolder)
+          }
+        }
+      ]
+    })
+  }
+
+  function deleteFlowDialog (flowId, callback) {
+    BootstrapDialog.show({
+      title: 'Delete flow',
+      message: 'Are you sure you want to delete flow ' + getFlow(flowId).title + '?',
+      buttons: [
+        {
+          label: 'Cancel',
+          action: function (dialogRef) {
+            dialogRef.close()
+            callback(false)
+          }
+        },{
+          label: 'Delete',
+          action: function (dialogRef) {
+            dialogRef.close()
+            callback(true)
+          }
+        }
+      ]
+    })
+  }
+
+  function editFlowDialog (flowId, callback) {
+    var message = $('.dialog_edit').clone()
+    $(message).find('[id=editName]').attr('value', `${getFlow(flowId).title}`)
+    $.each(folders, (id, folder) => {
+      $(message).find('[id=editFolder]').append($("<option></option>").attr("value", id).text(folder.title))
+    })
+    $(message).find('[id=editFolder]').val(getFlow(flowId).folder.toString())
+    BootstrapDialog.show({
+      title: 'Edit and move flow',
+      message: message,
+      buttons: [
+        {
+          label: 'Cancel',
+          action: function (dialogRef) {
+            dialogRef.close()
+            callback(false)
+          }
+        },{
+          label: 'Save',
+          action: function (dialogRef) {
+            var editName = dialogRef.getModalBody().find('[id=editName]').val()
+            var editFolder = dialogRef.getModalBody().find('[id=editFolder]').val()
+            dialogRef.close()
+            callback(editName, editFolder)
+          }
+        }
+      ]
+    })
+  }
+
+  function search () {
+    value = $('[id=search]').val()
+    $('[data=flow_panel]').hide()
+    $(`:contains(${value})`).parents('[data=flow_panel]').show()
+  }
 </script>
 </body>
 </html>
