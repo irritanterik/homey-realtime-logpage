@@ -9,6 +9,13 @@
   <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.9/css/bootstrap-dialog.min.css" rel="stylesheet" type="text/css" />
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
+  <script>
+    jQuery.expr[':'].icontains = jQuery.expr.createPseudo(function (arg) {
+      return function (elem) {
+        return jQuery(elem).text().toUpperCase().indexOf(arg.toUpperCase()) >= 0
+      }
+    })
+  </script>
   <style>
     .well {
       margin-bottom: 5px;
@@ -35,7 +42,11 @@
           <div class="panel-heading">
             <div class="row">
               <div class="col-sm-4" data="flow_path"></div>
-              <div class="col-sm-4 text-center"><b data="title"></b></div>
+              <div class="col-sm-4 text-center">
+                <span class="text-muted" data="test_btn" data-toggle="tooltip" title="Test flow"><i class="fa fa-play"></i></span>
+                &nbsp;&nbsp;
+                <strong data="title"></strong>
+              </div>
               <div class="col-sm-4 text-right">
                 <span class="label label-default" data="label_disabled"></span>
                 <span class="label label-danger" data="label_broken"></span>
@@ -68,9 +79,12 @@
       <div class="template_card">
         <div class="well well-sm">
           <span class="label label-danger" data="label_danger"></span>
+          <!-- <button class="btn btn-default btn-small" data="test_btn" data-toggle="tooltip" title="Test card"><i class="fa fa-play"></i></button> -->
           <span class="label label-success pull-right" data="card_type_device"></span>
           <span class="label label-info pull-right" data="card_type_app"></span>
           <span class="label label-primary pull-right" data="card_type_manager"></span>
+          <span class="text-muted" data="test_btn" data-toggle="tooltip" title="Test card"><i class="fa fa-play"></i></span>
+          &nbsp;&nbsp;
           <span class="text-nowrap"><strong data="card_title"></strong></span><br>
           <span class="text-muted" data="card_args"></span>
           <span class="text-muted" data="card_delay"></span>
@@ -118,24 +132,21 @@
   function addFlow (flow) {
     var newFlow = $('.template_flow').clone()
     $(newFlow).find('[data=flow_panel]').attr('flow_panel_id', flow.id)
-    $(newFlow).find('[data=title]').html(`<a href="${setup.ip}/manager/flow/#${flow.id}" target=_new>${flow.title}</a>`)
-    $(newFlow).find('[data=cards_trigger]').append(formatCard(flow.trigger, 'trigger').html())
-    $(newFlow).find('[data=cards_condition]').append(formatCards(flow.conditions, 'condition').html())
-    $(newFlow).find('[data=cards_action]').append(formatCards(flow.actions, 'action').html())
-    $(newFlow).find('[data=toggle_btn]').attr('toggle_btn_id', flow.id)
-    $(newFlow).find('[data=edit_btn]').attr('edit_btn_id', flow.id)
-    $(newFlow).find('[data=copy_btn]').attr('copy_btn_id', flow.id)
-    $(newFlow).find('[data=delete_btn]').attr('delete_btn_id', flow.id)
+    $(newFlow).find('[data=title]').html(`<a href="${setup.protocol}://${setup.ip}/manager/flow/#${flow.id}" target=_new>${flow.title}</a>`)
+    $(newFlow).find('[data=cards_trigger]').append(formatCard(flow.id, flow.trigger, 'trigger', 0).html())
+    $(newFlow).find('[data=cards_condition]').append(formatCards(flow, 'conditions').html())
+    $(newFlow).find('[data=cards_action]').append(formatCards(flow, 'actions').html())
+    $(newFlow).find('[data=toggle_btn]').attr('onClick', `toggleFlow('${flow.id}')`)
+    $(newFlow).find('[data=edit_btn]').attr('onClick', `editFlow('${flow.id}')`)
+    $(newFlow).find('[data=copy_btn]').attr('onClick', `copyFlow('${flow.id}')`)
+    $(newFlow).find('[data=delete_btn]').attr('onClick', `deleteFlow('${flow.id}')`)
+    $(newFlow).find('[data=test_btn]').attr('onClick', `testFlow('${flow.id}')`)
     if (flow.folder) $(newFlow).find('[data=flow_path]').html('<i class="fa fa-folder-open" aria-hidden="true"></i> ' + formatFolder(flow.folder))
     if (flow.broken) {
       $(newFlow).find('[data=flow_panel]').removeClass("panel-success").addClass("panel-danger")
       $(newFlow).find('[data=label_broken]').html("BROKEN")
     }
     $('#flows').append(newFlow.html())
-    $(`[toggle_btn_id=${flow.id}]`).on('click', function () { toggleFlow(flow.id) })
-    $(`[edit_btn_id=${flow.id}]`).on('click', function () { editFlow(flow.id) })
-    $(`[copy_btn_id=${flow.id}]`).on('click', function () { copyFlow(flow.id) })
-    $(`[delete_btn_id=${flow.id}]`).on('click', function () { deleteFlow(flow.id) })
     showFlowToggleButton(flow.id)
   }
 
@@ -145,22 +156,22 @@
     return noCard
   }
 
-  function formatCards (cards, type) {
-    if (type === 'action' && cards.length === 0) return noCard()
+  function formatCards (flow, type) {
+    if (type === 'actions' && flow[type].length === 0) return noCard()
     var newCards = $("<div />")
-    cards.forEach(function (card) {
-      newCards.append(formatCard(card, type).html())
+    flow[type].forEach(function (card, index) {
+      newCards.append(formatCard(flow.id, card, type, index).html())
     })
     return newCards
   }
 
-  function formatCard (card, type) {
+  function formatCard (flowId, card, type, index) {
     if (isEmptyObject(card)) return noCard()
     var newCard = $('.template_card').clone()
-    var definitions = getCard(card.uri, type, card.id)
+    var definitions = getCard(card.uri, (type === 'trigger') ? type : type.slice(0, -1), card.id)
     var app = getApp(card.uri)
 
-    if (type === 'condition') {
+    if (type === 'conditions') {
       $(newCard).find('[data=card_title]').html(conditionTitleParse(definitions.title.en, !card.inverted))
     } else {
       $(newCard).find('[data=card_title]').html(definitions.title.en)
@@ -168,9 +179,8 @@
 
     $(newCard).find('[data=card_type_' + app.uriObj.type + ']').html(app.uriObj.name)
     if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card))
-    if (card.delay && card.delay.number > 0) $(newCard).find('[data=card_args]').html('<i>delay</i>: ' + (card.delay.number * card.delay.multiplier) + ' seconds')
+    if (card.delay && card.delay.number > 0) $(newCard).find('[data=card_delay]').html('<i>delay</i>: ' + (card.delay.number * card.delay.multiplier) + ' seconds')
     if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: <code>' + (card.droptoken) + '</code>')
-
     if (definitions.tokens) {
       var tokens = '<i>tokens</i>: '
       definitions.tokens.forEach(token => {
@@ -178,6 +188,10 @@
       })
       $(newCard).find('[data=card_droptoken]').html(tokens)
     }
+
+    $(newCard).find('[data=test_btn]').attr('onClick', `testCard('${flowId}','${type}',${index})`)
+    if (type !== 'actions') $(newCard).find('[data=test_btn]').remove()
+
     return newCard
   }
 
@@ -375,13 +389,13 @@
   function showFlowToggleButton (flowId) {
     if (getFlow(flowId).enabled) {
       $(`[flow_panel_id=${flowId}] [data=label_disabled]`).html("")
-      $(`[toggle_btn_id=${flowId}] i`).removeClass('fa-square-o').addClass('fa-check-square-o')
+      $(`[flow_panel_id=${flowId}] [data=toggle_btn] i`).removeClass('fa-square-o').addClass('fa-check-square-o')
       if (!getFlow(flowId).broken) {
         $(`[flow_panel_id=${flowId}]`).removeClass("panel-default").addClass("panel-success")
       }
     } else {
       $(`[flow_panel_id=${flowId}] [data=label_disabled]`).html("DISABLED")
-      $(`[toggle_btn_id=${flowId}] i`).removeClass('fa-check-square-o').addClass('fa-square-o')
+      $(`[flow_panel_id=${flowId}] [data=toggle_btn] i`).removeClass('fa-check-square-o').addClass('fa-square-o')
       if (!getFlow(flowId).broken) {
         $(`[flow_panel_id=${flowId}]`).removeClass("panel-success").addClass("panel-default")
       }
@@ -504,16 +518,65 @@
     })
   }
 
-  jQuery.expr[':'].icontains = jQuery.expr.createPseudo(function (arg) {
-    return function (elem) {
-      return jQuery(elem).text().toUpperCase().indexOf(arg.toUpperCase()) >= 0
-    }
-  })
-
   function search () {
     value = $('[id=search]').val()
     $('[data=flow_panel]').hide()
     $(`:contains(${value})`).parents('[data=flow_panel]').show()
+  }
+
+  function testCard (flowId, type, index) {
+    var testflow = {
+      "flow":{
+        "trigger":{},
+        "conditions":[],
+        "actions":[]
+      },
+      "tokens":{}
+    }
+
+    if (!isEmptyObject(getFlow(flowId).trigger)) {
+      getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens.forEach(token => {
+        testflow.tokens[token.name] = token.example.en
+      })
+    }
+
+    testflow.flow.actions.push(getFlow(flowId)[type][index])
+    $.ajax({
+      url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/test/`,
+      type: 'POST',
+      data: JSON.stringify(testflow),
+      success: function(data) {
+        console.log(data)
+      }
+    })
+  }
+
+  function testFlow (flowId) {
+    var testflow = {
+      "flow":{
+        "trigger":{},
+        "conditions":[],
+        "actions":[]
+      },
+      "tokens":{}
+    }
+
+    if (!isEmptyObject(getFlow(flowId).trigger)) {
+      getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens.forEach(token => {
+        testflow.tokens[token.name] = token.example.en
+      })
+    }
+
+    testflow.flow.conditions =  getFlow(flowId).conditions
+    testflow.flow.actions = getFlow(flowId).actions
+    $.ajax({
+      url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/test/`,
+      type: 'POST',
+      data: JSON.stringify(testflow),
+      success: function(data) {
+        console.log(data)
+      }
+    })
   }
 
 </script>
