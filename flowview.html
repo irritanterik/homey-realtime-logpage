@@ -2,6 +2,7 @@
 <head>
   <title>Flow Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="config.js"></script>
   <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.9/js/bootstrap-dialog.min.js"></script>
@@ -38,6 +39,7 @@
               <div class="col-sm-4 text-right">
                 <span class="label label-default" data="label_disabled"></span>
                 <span class="label label-danger" data="label_broken"></span>
+                <button class="btn btn-default" data="toggle_btn" data-toggle="tooltip" title="Enable or disable"><i class="fa fa-square-o"></i></button>
                 <button class="btn btn-default" data="edit_btn"   data-toggle="tooltip" title="Rename & Move"><i class="fa fa-pencil"></i></button>
                 <button class="btn btn-default" data="copy_btn"   data-toggle="tooltip" title="Copy"><i class="fa fa-clone"></i></button>
                 <button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="Delete"><i class="fa fa-remove"></i></button>
@@ -97,19 +99,16 @@
     </div>
   </div>
   <script>
-  var ip = '0.0.0.0' // Put your ip here
-  var bearer_token = 'your token' // Put your bearer token here
-
   var devices = []
   var cards
-  var folders
-  var flows
+  var folders = []
+  var flows = []
 
-  if (ip === '0.0.0.0') alert('Configure your Homey IP in this script...')
-  if (bearer_token === 'your token') alert('Configure your Bearer token in this script...')
+  if (setup.ip === '0.0.0.0') alert('Configure your Homey IP in this script...')
+  if (setup.bearer_token === 'your token') alert('Configure your Bearer token in this script...')
   $.ajaxSetup({
     contentType : 'application/json',
-    headers: {Authorization: 'Bearer ' + bearer_token}
+    headers: {Authorization: 'Bearer ' + setup.bearer_token}
   })
 
   String.prototype.capitalizeFirstLetter = function() {
@@ -119,26 +118,25 @@
   function addFlow (flow) {
     var newFlow = $('.template_flow').clone()
     $(newFlow).find('[data=flow_panel]').attr('flow_panel_id', flow.id)
-    $(newFlow).find('[data=title]').html(`<a href="http://${ip}/manager/flow/#${flow.id}" target=_new>${flow.title}</a>`)
+    $(newFlow).find('[data=title]').html(`<a href="${setup.ip}/manager/flow/#${flow.id}" target=_new>${flow.title}</a>`)
     $(newFlow).find('[data=cards_trigger]').append(formatCard(flow.trigger, 'trigger').html())
     $(newFlow).find('[data=cards_condition]').append(formatCards(flow.conditions, 'condition').html())
     $(newFlow).find('[data=cards_action]').append(formatCards(flow.actions, 'action').html())
+    $(newFlow).find('[data=toggle_btn]').attr('toggle_btn_id', flow.id)
     $(newFlow).find('[data=edit_btn]').attr('edit_btn_id', flow.id)
     $(newFlow).find('[data=copy_btn]').attr('copy_btn_id', flow.id)
     $(newFlow).find('[data=delete_btn]').attr('delete_btn_id', flow.id)
     if (flow.folder) $(newFlow).find('[data=flow_path]').html('<i class="fa fa-folder-open" aria-hidden="true"></i> ' + formatFolder(flow.folder))
-    if (!flow.enabled) {
-      $(newFlow).find('[data=flow_panel]').removeClass("panel-success").addClass("panel-default")
-      $(newFlow).find('[data=label_disabled]').html("DISABLED")
-    }
     if (flow.broken) {
       $(newFlow).find('[data=flow_panel]').removeClass("panel-success").addClass("panel-danger")
       $(newFlow).find('[data=label_broken]').html("BROKEN")
     }
     $('#flows').append(newFlow.html())
+    $(`[toggle_btn_id=${flow.id}]`).on('click', function () { toggleFlow(flow.id) })
     $(`[edit_btn_id=${flow.id}]`).on('click', function () { editFlow(flow.id) })
     $(`[copy_btn_id=${flow.id}]`).on('click', function () { copyFlow(flow.id) })
     $(`[delete_btn_id=${flow.id}]`).on('click', function () { deleteFlow(flow.id) })
+    showFlowToggleButton(flow.id)
   }
 
   function noCard () {
@@ -184,8 +182,8 @@
   }
 
   function formatFolder (id) {
-    var result = folders[id].title
-    if (folders[id].folder) result = formatFolder(folders[id].folder) + " > " + result
+    var result = getFolder(id).title
+    if (getFolder(id).folder) result = formatFolder(getFolder(id).folder) + " > " + result
     return result
   }
 
@@ -251,22 +249,30 @@
     return flows.filter(flow => flow.id === id)[0]
   }
 
+  function getFolder (id) {
+    return folders.filter(folder => folder.id === id)[0]
+  }
+
   function loadFolders (callback) {
-    $.getJSON('http://' + ip + '/api/manager/flow/folder/', function(data) {
-      folders = data.result
+    folders = []
+    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/folder/`, function(data) {
+      $.each(data.result, function (index, folder) {
+        folders.push(folder)
+      })
+      sortFolders()
       callback()
     })
   }
 
   function loadCards (callback) {
-    $.getJSON('http://' + ip + '/api/manager/flow/card/', function(data) {
+    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/card/`, function(data) {
       cards = data.result
       callback()
     })
   }
 
   function loadDevices (callback) {
-    $.getJSON('http://' + ip + '/api/manager/devices/device/', function(data) {
+    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/devices/device/`, function(data) {
       $.each(data.result, function (index, resultDevice) {
         devices.push({id: resultDevice.id, name: resultDevice.name})
       })
@@ -277,8 +283,7 @@
   function loadFlows (callback) {
     // get all flow folders
     flows = []
-    $.getJSON('http://' + ip + '/api/manager/flow/flow/', function(data) {
-      // flows = data.result  // .sort((a, b) => (a.order > b.order ? 1 : -1))
+    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/`, function(data) {
       $.each(data.result, function (index, flow) {
         flows.push(flow)
       })
@@ -286,9 +291,16 @@
     })
   }
 
+  function sortFolders () {
+    folders.forEach(folder => {
+      folder.sorting = folderOrder(folder.id)
+    })
+    folders.sort((a, b) => (a.sorting > b.sorting ? 1 : -1))
+  }
+
   function folderOrder (id) {
-    var order = formatOrderNumber(folders[id].order) + '|'
-    if (folders[id].folder) order = folderOrder(folders[id].folder) + order
+    var order = formatOrderNumber(getFolder(id).order) + '|'
+    if (getFolder(id).folder) order = folderOrder(getFolder(id).folder) + order
     return order
   }
 
@@ -323,10 +335,10 @@
     copyFlowDialog(flowId, function(newName, newFolder) {
       if (newName) {
         if (newFolder === 'false') newFolder = false
-        $.getJSON(`http://${ip}/api/manager/flow/flow/${flowId}`, function(data) {
+        $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`, function(data) {
           if (data.status !== 200) return alert('Copy failure... getting existing flow')
           var existingFlow = data.result
-          $.post(`http://${ip}/api/manager/flow/flow`, function(data) {
+          $.post(`${setup.protocol}://${setup.ip}/api/manager/flow/flow`, function(data) {
             if (data.status !== 200) return alert('Copy failure... requesting new id')
             var newFlow = existingFlow
             newFlow.id = data.result.id
@@ -334,7 +346,7 @@
             newFlow.folder = newFolder
             newFlow.order = data.result.order
             $.ajax({
-              url: `http://${ip}/api/manager/flow/flow/${newFlow.id}`,
+              url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${newFlow.id}`,
               type: 'PUT',
               data: JSON.stringify(newFlow),
               success: function(data) {
@@ -351,7 +363,7 @@
     deleteFlowDialog(flowId, function(doDelete) {
       if (!doDelete) return
       $.ajax({
-        url: `http://${ip}/api/manager/flow/flow/${flowId}`,
+        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
         type: 'DELETE',
         success: function(data) {
           $(`[flow_panel_id=${flowId}]`).slideUp(1000)
@@ -360,17 +372,45 @@
     })
   }
 
+  function showFlowToggleButton (flowId) {
+    if (getFlow(flowId).enabled) {
+      $(`[flow_panel_id=${flowId}] [data=label_disabled]`).html("")
+      $(`[toggle_btn_id=${flowId}] i`).removeClass('fa-square-o').addClass('fa-check-square-o')
+      if (!getFlow(flowId).broken) {
+        $(`[flow_panel_id=${flowId}]`).removeClass("panel-default").addClass("panel-success")
+      }
+    } else {
+      $(`[flow_panel_id=${flowId}] [data=label_disabled]`).html("DISABLED")
+      $(`[toggle_btn_id=${flowId}] i`).removeClass('fa-check-square-o').addClass('fa-square-o')
+      if (!getFlow(flowId).broken) {
+        $(`[flow_panel_id=${flowId}]`).removeClass("panel-success").addClass("panel-default")
+      }
+    }
+  }
+
+  function toggleFlow (flowId) {
+    flows.filter(flow => flow.id === flowId)[0].enabled = !getFlow(flowId).enabled
+    $.ajax({
+      url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
+      type: 'PUT',
+      data: JSON.stringify({enabled: getFlow(flowId).enabled}),
+      success: function(data) {
+        showFlowToggleButton(flowId)
+      }
+    })
+  }
+
   function editFlow (flowId) {
     editFlowDialog(flowId, function(newName, newFolder) {
       if (newName) {
         if (newFolder === 'false') newFolder = false
-        $.getJSON(`http://${ip}/api/manager/flow/flow/${flowId}`, function(data) {
+        $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`, function(data) {
           if (data.status !== 200) return alert('Edit failure... getting existing flow')
           var existingFlow = data.result
           existingFlow.title = newName
           existingFlow.folder = newFolder
           $.ajax({
-            url: `http://${ip}/api/manager/flow/flow/${flowId}`,
+            url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
             type: 'PUT',
             data: JSON.stringify(existingFlow),
             success: function(data) {
@@ -385,8 +425,8 @@
   function copyFlowDialog (flowId, callback) {
     var message = $('.dialog_copy').clone()
     $(message).find('[id=copyName]').attr('value', `${getFlow(flowId).title} (copy)`)
-    $.each(folders, (id, folder) => {
-      $(message).find('[id=copyFolder]').append($("<option></option>").attr("value", id).text(folder.title))
+    folders.forEach(folder => {
+      $(message).find('[id=copyFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
     })
     $(message).find('[id=copyFolder]').val(getFlow(flowId).folder.toString())
     BootstrapDialog.show({
@@ -437,8 +477,8 @@
   function editFlowDialog (flowId, callback) {
     var message = $('.dialog_edit').clone()
     $(message).find('[id=editName]').attr('value', `${getFlow(flowId).title}`)
-    $.each(folders, (id, folder) => {
-      $(message).find('[id=editFolder]').append($("<option></option>").attr("value", id).text(folder.title))
+    folders.forEach(folder => {
+      $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
     })
     $(message).find('[id=editFolder]').val(getFlow(flowId).folder.toString())
     BootstrapDialog.show({
@@ -464,11 +504,18 @@
     })
   }
 
+  jQuery.expr[':'].icontains = jQuery.expr.createPseudo(function (arg) {
+    return function (elem) {
+      return jQuery(elem).text().toUpperCase().indexOf(arg.toUpperCase()) >= 0
+    }
+  })
+
   function search () {
     value = $('[id=search]').val()
     $('[data=flow_panel]').hide()
     $(`:contains(${value})`).parents('[data=flow_panel]').show()
   }
+
 </script>
 </body>
 </html>
