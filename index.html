@@ -2,6 +2,7 @@
 <head>
   <title>Realtime Homey Logger</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="config.js"></script>
   <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
   <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
@@ -44,16 +45,13 @@
     </table>
   </div>
   <script>
-  var ip = '0.0.0.0' // Put your ip here
-  var bearer_token = 'your token' // Put your bearer token here
-
   var devices = []
   var apps = []
   var setting = {}
 
-  if (ip === '0.0.0.0') alert('Configure your Homey IP in this script...')
-  if (bearer_token === 'your token') alert('Configure your Bearer token in this script...')
-  $.ajaxSetup({headers: {Authorization: 'Bearer ' + bearer_token}})
+  if (setup.ip === '0.0.0.0') alert('Configure your Homey IP in config.js...')
+  if (setup.bearer_token === 'your token') alert('Configure your Bearer token in config.js...')
+  $.ajaxSetup({headers: {Authorization: 'Bearer ' + setup.bearer_token}})
 
   function optionsChanged () {
     setting = {
@@ -112,7 +110,7 @@
   }
 
   function listenManagerDevices () {
-    var socket = io.connect('http://' + ip + '/realtime/manager/devices/', {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
+    var socket = io.connect(setup.protocol + '://' + setup.ip + '/realtime/manager/devices/', {query: 'token=' + setup.bearer_token, transports: ['websocket', 'polling']})
     var _onevent = socket.onevent
     socket.on('disconnect', function() {
       console.log('Got disconnect!')
@@ -126,7 +124,7 @@
 
   function listenDevices () {
     // get all devices and handels all events on /realtime/device/device_id/
-    $.getJSON('http://' + ip + '/api/manager/devices/device/', function(data) {
+    $.getJSON(setup.protocol + '://' + setup.ip + '/api/manager/devices/device/', function(data) {
       addLogEntry('Start device listener', 'Will listen to realtime events of ' + Object.keys(data.result).length + ' devices', 'devices')
       $.each(data.result, function (index, resultDevice) {
         var device = {
@@ -134,8 +132,8 @@
           name: resultDevice.name
         }
         devices.push(device)
-        var deviceSocket = io.connect('http://' + ip + '/realtime/device/' + device.id + '/', {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
-        console.log('http://' + ip + '/realtime/device/' + device.id + '/')
+        var deviceSocket = io.connect(setup.protocol + '://' + setup.ip + '/realtime/device/' + device.id + '/', {query: 'token=' + setup.bearer_token, transports: ['websocket', 'polling']})
+        console.log(setup.protocol + '://' + setup.ip + '/realtime/device/' + device.id + '/')
         var _onevent = deviceSocket.onevent
         deviceSocket.onevent = function (packet) { //Override incoming socket events
           console.log(packet)
@@ -149,7 +147,7 @@
 
   function listenApps () {
     // get all apps and handels all events on /realtime/app/app_id/
-    $.getJSON('http://' + ip + '/api/manager/apps/app', function(data) {
+    $.getJSON(setup.protocol + '://' + setup.ip + '/api/manager/apps/app', function(data) {
       addLogEntry('Start app listener', 'Will listen to realtime events of ' + Object.keys(data.result).length + ' apps', 'apps')
       $.each(data.result, function (index, resultApp) {
         var app = {
@@ -157,7 +155,7 @@
           name: resultApp.name.en
         }
         apps.push(app)
-        var appSocket = io.connect('http://' + ip + '/realtime/app/' + app.id + '/', {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
+        var appSocket = io.connect(setup.protocol + '://' + setup.ip + '/realtime/app/' + app.id + '/', {query: 'token=' + setup.bearer_token, transports: ['websocket', 'polling']})
         var _onevent = appSocket.onevent
         appSocket.onevent = function (packet) { //Override incoming socket events
           var args = packet.data || []
@@ -170,7 +168,7 @@
   }
 
   function listenOn (namespace, category) {
-    var socket = io.connect('http://' + ip + namespace, {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
+    var socket = io.connect(setup.protocol + '://' + setup.ip + namespace, {query: 'token=' + setup.bearer_token, transports: ['websocket', 'polling']})
     socket.onevent = function (packet) { //Override incoming socket events
       var args = packet.data || []
       console.log('***', namespace, packet.data[0], packet.data[1], packet)
@@ -184,7 +182,7 @@
   var newSocket
   function findSocket (namespace) {
     // try this to validate new namespaces
-    newSocket = io.connect('http://' + ip + namespace , {query: 'token=' + bearer_token, transports: ['websocket', 'polling']})
+    newSocket = io.connect(setup.protocol + '://' + setup.ip + namespace , {query: 'token=' + setup.bearer_token, transports: ['websocket', 'polling']})
     var _onevent = newSocket.onevent
     var _emit = newSocket.emit
     newSocket.onevent = function (packet) { //Override incoming socket events
@@ -222,7 +220,7 @@
   // findSocket('/realtime/manager/speaker/') // nothing here
   // findSocket('/realtime/manager/system/') // nothing here
   // findSocket('/realtime/manager/drivers/') // nothing here
-  var socketlib = 'http://' + ip + '/socket.io/socket.io.js'
+  var socketlib = setup.protocol + '://' + setup.ip + '/socket.io/socket.io.js'
   $.getScript(socketlib, function () {
     listenToAll()
   })

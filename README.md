@@ -1,10 +1,14 @@
 # Realtime Homey Logger and Homey Flow Viewer
 
-Add your local homey ip-address and bearer token in the index.html and flowview.html file and open it in a browser.
+Add your local homey ip-address and bearer token in the config.js file and open index.html and flowview.html in a browser.
 
 ```
-var ip = '0.0.0.0' // Put your ip here
-var bearer_token = 'your token' // Put your bearer token here
+setup = {
+  // This can have nested stuff, arrays, etc.
+  ip: '0.0.0.0',                // Put your ip here or athom cloud uri,
+  bearer_token: 'your token',   // Put your bearer token here
+  protocol: 'http'              // Change to https if using athom cloud
+}
 ```
 
 Your bearer_token can by found by entering `window.bearer_token` in the browser console while logged in to Homey (open console with F12 in Chrome).
