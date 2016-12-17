@@ -83,7 +83,8 @@
           <span class="label label-success pull-right" data="card_type_device"></span>
           <span class="label label-info pull-right" data="card_type_app"></span>
           <span class="label label-primary pull-right" data="card_type_manager"></span>
-          <span class="text-muted" data="test_btn" data-toggle="tooltip" title="Test card"><i class="fa fa-play"></i></span>
+          <!-- <span class="text-muted" data="edit_card_btn" data-toggle="tooltip" title="Edit"><i class="fa fa-pencil"></i></span>&nbsp; -->
+          <span class="text-muted" data="test_card_btn" data-toggle="tooltip" title="Test"><i class="fa fa-play"></i></span>
           &nbsp;&nbsp;
           <span class="text-nowrap"><strong data="card_title"></strong></span><br>
           <span class="text-muted" data="card_args"></span>
@@ -120,13 +121,14 @@
 
   if (setup.ip === '0.0.0.0') alert('Configure your Homey IP in this script...')
   if (setup.bearer_token === 'your token') alert('Configure your Bearer token in this script...')
+
   $.ajaxSetup({
     contentType : 'application/json',
     headers: {Authorization: 'Bearer ' + setup.bearer_token}
   })
 
   String.prototype.capitalizeFirstLetter = function() {
-      return this.charAt(0).toUpperCase() + this.slice(1);
+      return this.charAt(0).toUpperCase() + this.slice(1)
   }
 
   function addFlow (flow) {
@@ -151,7 +153,7 @@
   }
 
   function noCard () {
-    var noCard = $("<div />")
+    var noCard = $('<div />')
     noCard.html('<br><span class="label label-danger">NO CARD</span>')
     return noCard
   }
@@ -189,8 +191,8 @@
       $(newCard).find('[data=card_droptoken]').html(tokens)
     }
 
-    $(newCard).find('[data=test_btn]').attr('onClick', `testCard('${flowId}','${type}',${index})`)
-    if (type !== 'actions') $(newCard).find('[data=test_btn]').remove()
+    $(newCard).find('[data=test_card_btn]').attr('onClick', `testCard('${flowId}','${type}',${index})`)
+    if (type !== 'actions') $(newCard).find('[data=test_card_btn]').remove()
 
     return newCard
   }
@@ -214,42 +216,31 @@
     return Object.getOwnPropertyNames(obj).length === 0
   }
 
-
 // ////////////////////////////////// HOMEY COPIED FUNCTIONS
   function conditionTitleParse (e, t) {
-    var a = e.match(/\!\{\{([^]+)\}\}/g);
+    var a = e.match(/\!\{\{([^]+)\}\}/g)
     return null === a ? e : (a.forEach(function(a) {
-        var n = a;
-        if ("!" == a.charAt(0) && (a = a.substring(1)),
-        a = a.replace("{{", ""),
-        a = a.replace("}}", ""),
-        a = a.split("|"),
-        t ? a = a[0] : ("" != a[0] && (a[0] = "&nbsp;" + a[0]),
-        "" != a[1] && (a[1] = "&nbsp;" + a[1]),
-        a = '<span class="inverter inverter-off">' + a[0] + '</span><span class="inverter inverter-on">' + a[1] + "</span>"),
-        e = e.replace(n, a),
-        !t) {
-            var o = e.indexOf(a);
-            o > 0 && (e = spliceSlice(e, o - 1, 1))
-        }
+      var n = a
+      if ("!" == a.charAt(0) && (a = a.substring(1)),
+      a = a.replace("{{", ""),
+      a = a.replace("}}", ""),
+      a = a.split("|"),
+      t ? a = a[0] : ("" != a[0] && (a[0] = "&nbsp;" + a[0]),
+      "" != a[1] && (a[1] = "&nbsp;" + a[1]),
+      a = a[0] + a[1]),
+      e = e.replace(n, a),
+      !t) {
+        var o = e.indexOf(a)
+        o > 0 && (e = spliceSlice(e, o - 1, 1))
+      }
     }),
     e)
   }
 
   function spliceSlice(e, t, a, n) {
-      return e.slice(0, t) + (n || "") + e.slice(t + a)
+    return e.slice(0, t) + (n || '') + e.slice(t + a)
   }
 // ////////////////////////////////// HOMEY COPIED FUNCTIONS
-
-  function getDeviceNameById (searchId) {
-    var result = null
-    devices.forEach(function (device, index) {
-      if (device.id === searchId) {
-        result = device.name
-      }
-    })
-    return result
-  }
 
   function getApp (uri) {
     return cards.filter(app => app.uri === uri)[0]
@@ -259,23 +250,16 @@
     return getApp(uri).cards[type].filter(card => card.id === id)[0]
   }
 
+  function getDevice (id) {
+    return devices.filter(device => device.id === id)[0]
+  }
+
   function getFlow (id) {
     return flows.filter(flow => flow.id === id)[0]
   }
 
   function getFolder (id) {
     return folders.filter(folder => folder.id === id)[0]
-  }
-
-  function loadFolders (callback) {
-    folders = []
-    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/folder/`, function(data) {
-      $.each(data.result, function (index, folder) {
-        folders.push(folder)
-      })
-      sortFolders()
-      callback()
-    })
   }
 
   function loadCards (callback) {
@@ -305,11 +289,15 @@
     })
   }
 
-  function sortFolders () {
-    folders.forEach(folder => {
-      folder.sorting = folderOrder(folder.id)
+  function loadFolders (callback) {
+    folders = []
+    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/folder/`, function(data) {
+      $.each(data.result, function (index, folder) {
+        folders.push(folder)
+      })
+      sortFolders()
+      callback()
     })
-    folders.sort((a, b) => (a.sorting > b.sorting ? 1 : -1))
   }
 
   function folderOrder (id) {
@@ -322,16 +310,23 @@
     return ('00000' + order).slice(-5)
   }
 
+  function sortFolders () {
+    folders.forEach(folder => {
+      folder.sorting = folderOrder(folder.id)
+    })
+    folders.sort((a, b) => (a.sorting > b.sorting ? 1 : -1))
+  }
+
   function showFlows () {
     flows.forEach(flow => {
       flow.order = formatOrderNumber(flow.order)
       if (flow.folder) flow.order = folderOrder(flow.folder) + flow.order
     })
     flows.sort((a, b) => (a.order > b.order ? 1 : -1))
-    $('#wait').remove()
     flows.forEach(flow => {
       addFlow(flow)
     })
+    $('#wait').remove()
     $('[data-toggle="tooltip"]').tooltip()
   }
 
@@ -402,18 +397,6 @@
     }
   }
 
-  function toggleFlow (flowId) {
-    flows.filter(flow => flow.id === flowId)[0].enabled = !getFlow(flowId).enabled
-    $.ajax({
-      url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
-      type: 'PUT',
-      data: JSON.stringify({enabled: getFlow(flowId).enabled}),
-      success: function(data) {
-        showFlowToggleButton(flowId)
-      }
-    })
-  }
-
   function editFlow (flowId) {
     editFlowDialog(flowId, function(newName, newFolder) {
       if (newName) {
@@ -432,6 +415,18 @@
             }
           })
         })
+      }
+    })
+  }
+
+  function toggleFlow (flowId) {
+    flows.filter(flow => flow.id === flowId)[0].enabled = !getFlow(flowId).enabled
+    $.ajax({
+      url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
+      type: 'PUT',
+      data: JSON.stringify({enabled: getFlow(flowId).enabled}),
+      success: function(data) {
+        showFlowToggleButton(flowId)
       }
     })
   }
@@ -535,7 +530,8 @@
     }
 
     if (!isEmptyObject(getFlow(flowId).trigger)) {
-      getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens.forEach(token => {
+
+      (getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens || []).forEach(token => {
         testflow.tokens[token.name] = token.example.en
       })
     }
@@ -578,7 +574,6 @@
       }
     })
   }
-
 </script>
 </body>
 </html>
