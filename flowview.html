@@ -244,12 +244,8 @@
   function formatArgs (card, definitions) {
     var output = ''
     Object.keys(card.args).forEach(function (argument) {
-      if (!definitions.args) {
-        console.log('issue with card', card, definitions)
-        output += '<i>' + argument + '</i>: ' + card.args[argument] + '<br>'
-      } else {
-        output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args.filter(item => item.name === argument)[0], card.args[argument]) + '<br>'
-      }
+      if (Object.prototype.toString.call(definitions.args) === '[object Object]') definitions.args = [definitions.args]
+      output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args.filter(item => item.name === argument)[0], card.args[argument]) + '<br>'
     })
     output = output.replace('[[', '<code>').replace(']]', '</code>')
     return output
