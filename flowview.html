@@ -627,6 +627,19 @@
     $(`:contains(${value})`).parents('[data=flow]').show()
   }
 
+
+  function test (testFlow) {
+    console.log(testFlow)
+    $.ajax({
+      url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/test/`,
+      type: 'POST',
+      data: JSON.stringify(testFlow),
+      success: function(data) {
+        console.log('testFlow result: ', data)
+      }
+    })
+  }
+
   function testCard (flowId, type, index) {
     var testflow = {
       "flow":{
@@ -638,21 +651,13 @@
     }
 
     if (!isEmptyObject(getFlow(flowId).trigger)) {
-
       (getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens || []).forEach(token => {
         testflow.tokens[token.name] = token.example.en
       })
     }
 
     testflow.flow.actions.push(getFlow(flowId)[type][index])
-    $.ajax({
-      url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/test/`,
-      type: 'POST',
-      data: JSON.stringify(testflow),
-      success: function(data) {
-        console.log(data)
-      }
-    })
+    test(testflow)
   }
 
   function testFlow (flowId) {
@@ -666,21 +671,14 @@
     }
 
     if (!isEmptyObject(getFlow(flowId).trigger)) {
-      getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens.forEach(token => {
+      (getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens || []).forEach(token => {
         testflow.tokens[token.name] = token.example.en
       })
     }
 
     testflow.flow.conditions =  getFlow(flowId).conditions
     testflow.flow.actions = getFlow(flowId).actions
-    $.ajax({
-      url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/test/`,
-      type: 'POST',
-      data: JSON.stringify(testflow),
-      success: function(data) {
-        console.log(data)
-      }
-    })
+    test(testflow)
   }
 </script>
 </body>
