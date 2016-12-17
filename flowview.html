@@ -37,6 +37,13 @@
     .draghandle {
       cursor: ns-resize;
     }
+
+    .colorbox {
+      display: inline-block;
+      height: 13px;
+      width: 13px;
+      vertical-align: text-top;
+    }
   </style>
 </head>
 <body>
@@ -126,6 +133,21 @@
         </select>
       </div>
 
+      <div class="dialog_edit_card form-group">
+        <label for="delay">Delay</label>
+        <input id="delay" class="form-control" type="text"  value="">
+        <div class="arguments"></div>
+      </div>
+
+      <div class="dialog_edit_card_argument text form-group">
+        <label for="field"></label>
+        <input id="field" class="form-control" type="text"  value="">
+      </div>
+
+      <div class="dialog_edit_card_argument text form-group">
+        <label for="field"></label>
+        <input id="field" class="form-control" type="number"  value="">
+      </div>
     </div>
   </div>
   <script>
@@ -196,7 +218,7 @@
     }
 
     $(newCard).find('[data=card_type_' + app.uriObj.type + ']').html(app.uriObj.name)
-    if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card))
+    if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions))
     if (card.delay && card.delay.number > 0) $(newCard).find('[data=card_delay]').html('<i>delay</i>: ' + (card.delay.number * card.delay.multiplier) + ' seconds')
     if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: <code>' + (card.droptoken) + '</code>')
     if (definitions.tokens) {
@@ -210,7 +232,6 @@
     $(newCard).find('[data=test_card_btn]').attr('onClick', `testCard('${flowId}','${type}',${index})`)
     if (type !== 'actions') $(newCard).find('[data=test_card_btn]').remove()
     if (type === 'trigger') $(newCard).find('[data=move_card_btn]').remove()
-
     return newCard
   }
 
@@ -220,13 +241,33 @@
     return result
   }
 
-  function formatArgs (card) {
+  function formatArgs (card, definitions) {
     var output = ''
     Object.keys(card.args).forEach(function (argument) {
-      output += '<i>' + argument + '</i>: ' + JSON.stringify(card.args[argument]) + '<br>'
+      output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args.filter(item => item.name === argument)[0], card.args[argument]) + '<br>'
     })
     output = output.replace('[[', '<code>').replace(']]', '</code>')
     return output
+  }
+
+  function formatArgValue (argDef, value) {
+    switch (argDef.type) {
+      case 'autocomplete':
+        return value.name
+      case 'dropdown':
+        return argDef.values.filter(item => item.id === value)[0].label.en
+      case 'color':
+        return `<span class="colorbox" style="background-color: ${value}"> </span> (${value})`
+      case 'range':
+        return value * (argDef.labelMultiplier || 1) + (argDef.label || '')
+      case 'text':
+      case 'number':
+      case 'time':
+        return value
+      default:
+        console.log(argDef, value)
+        return value
+    }
   }
 
   function isEmptyObject (obj) {
