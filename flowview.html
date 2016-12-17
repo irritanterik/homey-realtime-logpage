@@ -4,6 +4,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="config.js"></script>
   <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
+  <script src="http://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.9/js/bootstrap-dialog.min.js"></script>
   <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
@@ -24,6 +25,18 @@
       padding-right: 5px;
       padding-left: 5px;
     }
+
+    .placeholder {
+      border: 1px solid green;
+      background-color: white;
+      -webkit-box-shadow: 0px 0px 10px #888;
+      -moz-box-shadow: 0px 0px 10px #888;
+      box-shadow: 0px 0px 10px #888;
+    }
+
+    .draghandle {
+      cursor: ns-resize;
+    }
   </style>
 </head>
 <body>
@@ -38,7 +51,7 @@
     </div>
     <div class="hide">
       <div class="template_flow">
-        <div class="panel panel-success" data="flow_panel">
+        <div class="panel panel-success" data="flow" flow_id="">
           <div class="panel-heading">
             <div class="row">
               <div class="col-sm-4" data="flow_path"></div>
@@ -77,19 +90,21 @@
       </div>
 
       <div class="template_card">
-        <div class="well well-sm">
-          <span class="label label-danger" data="label_danger"></span>
-          <!-- <button class="btn btn-default btn-small" data="test_btn" data-toggle="tooltip" title="Test card"><i class="fa fa-play"></i></button> -->
-          <span class="label label-success pull-right" data="card_type_device"></span>
-          <span class="label label-info pull-right" data="card_type_app"></span>
-          <span class="label label-primary pull-right" data="card_type_manager"></span>
-          <!-- <span class="text-muted" data="edit_card_btn" data-toggle="tooltip" title="Edit"><i class="fa fa-pencil"></i></span>&nbsp; -->
-          <span class="text-muted" data="test_card_btn" data-toggle="tooltip" title="Test"><i class="fa fa-play"></i></span>
-          &nbsp;&nbsp;
-          <span class="text-nowrap"><strong data="card_title"></strong></span><br>
-          <span class="text-muted" data="card_args"></span>
-          <span class="text-muted" data="card_delay"></span>
-          <span class="text-muted" data="card_droptoken"></span>
+        <div data="card" class="card">
+          <div class="well well-sm">
+            <span class="label label-danger" data="label_danger"></span>
+            <span class="label label-success pull-right" data="card_type_device"></span>
+            <span class="label label-info pull-right" data="card_type_app"></span>
+            <span class="label label-primary pull-right" data="card_type_manager"></span>
+            <span class="text-muted draghandle" data="move_card_btn"><i class="fa fa-arrows"></i></span>&nbsp;
+            <span class="text-muted" data="edit_card_btn" data-toggle="tooltip" title="Edit"><i class="fa fa-pencil"></i></span>&nbsp;
+            <span class="text-muted" data="test_card_btn" data-toggle="tooltip" title="Test"><i class="fa fa-play"></i></span>
+            &nbsp;&nbsp;
+            <span class="text-nowrap"><strong data="card_title"></strong></span><br>
+            <span class="text-muted" data="card_args"></span>
+            <span class="text-muted" data="card_delay"></span>
+            <span class="text-muted" data="card_droptoken"></span>
+          </div>
         </div>
       </div>
 
@@ -133,7 +148,7 @@
 
   function addFlow (flow) {
     var newFlow = $('.template_flow').clone()
-    $(newFlow).find('[data=flow_panel]').attr('flow_panel_id', flow.id)
+    $(newFlow).find('[data=flow]').attr('flow_id', flow.id)
     $(newFlow).find('[data=title]').html(`<a href="${setup.protocol}://${setup.ip}/manager/flow/#${flow.id}" target=_new>${flow.title}</a>`)
     $(newFlow).find('[data=cards_trigger]').append(formatCard(flow.id, flow.trigger, 'trigger', 0).html())
     $(newFlow).find('[data=cards_condition]').append(formatCards(flow, 'conditions').html())
@@ -145,7 +160,7 @@
     $(newFlow).find('[data=test_btn]').attr('onClick', `testFlow('${flow.id}')`)
     if (flow.folder) $(newFlow).find('[data=flow_path]').html('<i class="fa fa-folder-open" aria-hidden="true"></i> ' + formatFolder(flow.folder))
     if (flow.broken) {
-      $(newFlow).find('[data=flow_panel]').removeClass("panel-success").addClass("panel-danger")
+      $(newFlow).find('[data=flow]').removeClass("panel-success").addClass("panel-danger")
       $(newFlow).find('[data=label_broken]').html("BROKEN")
     }
     $('#flows').append(newFlow.html())
@@ -173,6 +188,7 @@
     var definitions = getCard(card.uri, (type === 'trigger') ? type : type.slice(0, -1), card.id)
     var app = getApp(card.uri)
 
+    $(newCard).find('[data=card]').attr('card_index', index)
     if (type === 'conditions') {
       $(newCard).find('[data=card_title]').html(conditionTitleParse(definitions.title.en, !card.inverted))
     } else {
@@ -193,6 +209,7 @@
 
     $(newCard).find('[data=test_card_btn]').attr('onClick', `testCard('${flowId}','${type}',${index})`)
     if (type !== 'actions') $(newCard).find('[data=test_card_btn]').remove()
+    if (type === 'trigger') $(newCard).find('[data=move_card_btn]').remove()
 
     return newCard
   }
@@ -328,6 +345,25 @@
     })
     $('#wait').remove()
     $('[data-toggle="tooltip"]').tooltip()
+    $('[data=cards_action], [data=cards_condition]').sortable({
+      handle: '[data=move_card_btn]',
+      tolerance: 'pointer',
+      revert: 'invalid',
+      placeholder: 'placeholder well well-sm',
+      forceHelperSize: true,
+      start: function(event, ui) {
+        ui.placeholder.height(ui.item.find('.well').height())
+      },
+      stop: function (event, ui) {
+        var flowId = ui.item.parents('[data=flow]').attr('flow_id')
+        var actionsOrder = []
+        var conditionsOrder = []
+        $(`[flow_id=${flowId}] [data=cards_condition] .card`).each(function (card) { conditionsOrder.push($(this).attr('card_index') * 1); $(this).attr('card_index', card) } )
+        $(`[flow_id=${flowId}] [data=cards_action] .card`).each(function (card) { actionsOrder.push($(this).attr('card_index') * 1); $(this).attr('card_index', card) } )
+        saveFlowCardOrder(flowId, conditionsOrder, actionsOrder)
+
+      }
+    })
   }
 
   loadDevices(() => {
@@ -375,7 +411,7 @@
         url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
         type: 'DELETE',
         success: function(data) {
-          $(`[flow_panel_id=${flowId}]`).slideUp(1000)
+          $(`[flow_id=${flowId}]`).slideUp(1000)
         }
       })
     })
@@ -383,16 +419,16 @@
 
   function showFlowToggleButton (flowId) {
     if (getFlow(flowId).enabled) {
-      $(`[flow_panel_id=${flowId}] [data=label_disabled]`).html("")
-      $(`[flow_panel_id=${flowId}] [data=toggle_btn] i`).removeClass('fa-square-o').addClass('fa-check-square-o')
+      $(`[flow_id=${flowId}] [data=label_disabled]`).html("")
+      $(`[flow_id=${flowId}] [data=toggle_btn] i`).removeClass('fa-square-o').addClass('fa-check-square-o')
       if (!getFlow(flowId).broken) {
-        $(`[flow_panel_id=${flowId}]`).removeClass("panel-default").addClass("panel-success")
+        $(`[flow_id=${flowId}]`).removeClass("panel-default").addClass("panel-success")
       }
     } else {
-      $(`[flow_panel_id=${flowId}] [data=label_disabled]`).html("DISABLED")
-      $(`[flow_panel_id=${flowId}] [data=toggle_btn] i`).removeClass('fa-check-square-o').addClass('fa-square-o')
+      $(`[flow_id=${flowId}] [data=label_disabled]`).html("DISABLED")
+      $(`[flow_id=${flowId}] [data=toggle_btn] i`).removeClass('fa-check-square-o').addClass('fa-square-o')
       if (!getFlow(flowId).broken) {
-        $(`[flow_panel_id=${flowId}]`).removeClass("panel-success").addClass("panel-default")
+        $(`[flow_id=${flowId}]`).removeClass("panel-success").addClass("panel-default")
       }
     }
   }
@@ -513,10 +549,41 @@
     })
   }
 
+  function orderArrayByIndexMap (array, indexMap) {
+    var result = []
+    indexMap.forEach((order, index) => result[index] = array[order])
+    return result
+  }
+
+  function indexMapHasChanged (indexMap) {
+    var result = false
+    indexMap.forEach((order, index) => {if (order !== index) { result = true }})
+    return result
+  }
+
+  function saveFlowCardOrder (flowId, conditionsOrder, actionsOrder) {
+    if (!(indexMapHasChanged(conditionsOrder) || indexMapHasChanged(actionsOrder))) return
+    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`, function(data) {
+      if (data.status !== 200) return alert('Failure... getting existing flow')
+      var existingFlow = data.result
+      existingFlow.conditions = orderArrayByIndexMap(existingFlow.conditions, conditionsOrder)
+      existingFlow.actions = orderArrayByIndexMap(existingFlow.actions, actionsOrder)
+      $.ajax({
+        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
+        type: 'PUT',
+        data: JSON.stringify(existingFlow),
+        success: function(data) {
+          console.log('order saved')
+          // location.reload()
+        }
+      })
+    })
+  }
+
   function search () {
     value = $('[id=search]').val()
-    $('[data=flow_panel]').hide()
-    $(`:contains(${value})`).parents('[data=flow_panel]').show()
+    $('[data=flow]').hide()
+    $(`:contains(${value})`).parents('[data=flow]').show()
   }
 
   function testCard (flowId, type, index) {
