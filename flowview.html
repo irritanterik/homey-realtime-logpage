@@ -244,7 +244,12 @@
   function formatArgs (card, definitions) {
     var output = ''
     Object.keys(card.args).forEach(function (argument) {
-      output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args.filter(item => item.name === argument)[0], card.args[argument]) + '<br>'
+      if (!definitions.args) {
+        console.log('issue with card', card, definitions)
+        output += '<i>' + argument + '</i>: ' + card.args[argument] + '<br>'
+      } else {
+        output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args.filter(item => item.name === argument)[0], card.args[argument]) + '<br>'
+      }
     })
     output = output.replace('[[', '<code>').replace(']]', '</code>')
     return output
@@ -628,20 +633,19 @@
     $(`:contains(${value})`).parents('[data=flow]').show()
   }
 
-  function test (flowId, testFlow) {
+  function test (flowId, testFlow, testCardIndex) {
     var socket = io.connect(`${setup.protocol}://${setup.ip}/realtime/manager/flow/`, {query: `token=${setup.bearer_token}`, transports: ['websocket', 'polling']})
     var session
     var cards = {total: testFlow.flow.conditions.length + testFlow.flow.actions.length, running: 0, passed: 0, failed: 0}
     console.log('testing flow', cards, flowId)
     socket.on('test', function (data) {
-      console.log(data)
       if (data.test_id !== session) return
       cards[data.state] += 1
       if (data.state === 'passed') {
-        $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(data.card_index).css('background-color', 'lightgreen').animate({'background-color': '#f5f5f5'}, 500)
+        $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(testCardIndex || data.card_index).css('background-color', 'lightgreen').animate({'background-color': '#f5f5f5'}, 500)
       }
       if (data.state === 'failed') {
-        $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(data.card_index).css('background-color', 'red').animate({'background-color': '#f5f5f5'}, 500)
+        $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(testCardIndex || data.card_index).css('background-color', 'red').animate({'background-color': '#f5f5f5'}, 1500)
         console.log('test failed', cards)
         socket.close()
       }
@@ -680,7 +684,7 @@
     }
 
     testflow.flow.actions.push(getFlow(flowId)[type][index])
-    test(flowId, testflow)
+    test(flowId, testflow, index)
   }
 
   function testFlow (flowId) {
@@ -701,7 +705,7 @@
 
     testflow.flow.conditions =  getFlow(flowId).conditions
     testflow.flow.actions = getFlow(flowId).actions
-    test(flowId, testflow)
+    test(flowId, testflow, null)
   }
 </script>
 </body>
