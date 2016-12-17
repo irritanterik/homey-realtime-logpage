@@ -384,6 +384,8 @@
     flows.forEach(flow => {
       addFlow(flow)
     })
+    $.getScript(`${setup.protocol}://${setup.ip}/socket.io/socket.io.js`)
+
     $('#wait').remove()
     $('[data-toggle="tooltip"]').tooltip()
     $('[data=cards_action], [data=cards_condition]').sortable({
@@ -402,7 +404,6 @@
         $(`[flow_id=${flowId}] [data=cards_condition] .card`).each(function (card) { conditionsOrder.push($(this).attr('card_index') * 1); $(this).attr('card_index', card) } )
         $(`[flow_id=${flowId}] [data=cards_action] .card`).each(function (card) { actionsOrder.push($(this).attr('card_index') * 1); $(this).attr('card_index', card) } )
         saveFlowCardOrder(flowId, conditionsOrder, actionsOrder)
-
       }
     })
   }
@@ -628,15 +629,38 @@
   }
 
 
-  function test (testFlow) {
-    console.log(testFlow)
-    $.ajax({
-      url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/test/`,
-      type: 'POST',
-      data: JSON.stringify(testFlow),
-      success: function(data) {
-        console.log('testFlow result: ', data)
+  function test (flowId, testFlow) {
+    var socket = io.connect(`${setup.protocol}://${setup.ip}/realtime/manager/flow/`, {query: `token=${setup.bearer_token}`, transports: ['websocket', 'polling']})
+    var session
+    var cards = {total: testFlow.flow.conditions.length + testFlow.flow.actions.length, running: 0, passed: 0, failed: 0}
+    console.log('testing flow', cards, flowId)
+    socket.on('test', function (data) {
+      console.log(data)
+      if (data.test_id !== session) return
+      cards[data.state] += 1
+      if (data.state === 'passed') {
+        $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(data.card_index).css('background-color', 'lightgreen').animate({'background-color': '#f5f5f5'}, 500)
       }
+      if (data.state === 'failed') {
+        $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(data.card_index).css('background-color', 'red').animate({'background-color': '#f5f5f5'}, 500)
+        console.log('test failed', cards)
+        socket.close()
+      }
+      if (cards.total === cards.passed) {
+        console.log('test complete', cards)
+        socket.close()
+      }
+
+    })
+    socket.on('connect', function () {
+      $.ajax({
+        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/test/`,
+        type: 'POST',
+        data: JSON.stringify(testFlow),
+        success: function(data) {
+          session = data.result
+        }
+      })
     })
   }
 
@@ -657,7 +681,7 @@
     }
 
     testflow.flow.actions.push(getFlow(flowId)[type][index])
-    test(testflow)
+    test(flowId, testflow)
   }
 
   function testFlow (flowId) {
@@ -678,7 +702,7 @@
 
     testflow.flow.conditions =  getFlow(flowId).conditions
     testflow.flow.actions = getFlow(flowId).actions
-    test(testflow)
+    test(flowId, testflow)
   }
 </script>
 </body>
