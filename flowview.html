@@ -628,7 +628,6 @@
     $(`:contains(${value})`).parents('[data=flow]').show()
   }
 
-
   function test (flowId, testFlow) {
     var socket = io.connect(`${setup.protocol}://${setup.ip}/realtime/manager/flow/`, {query: `token=${setup.bearer_token}`, transports: ['websocket', 'polling']})
     var session
@@ -675,6 +674,7 @@
     }
 
     if (!isEmptyObject(getFlow(flowId).trigger)) {
+
       (getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens || []).forEach(token => {
         testflow.tokens[token.name] = token.example.en
       })
@@ -695,7 +695,7 @@
     }
 
     if (!isEmptyObject(getFlow(flowId).trigger)) {
-      (getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens || []).forEach(token => {
+      getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens.forEach(token => {
         testflow.tokens[token.name] = token.example.en
       })
     }
