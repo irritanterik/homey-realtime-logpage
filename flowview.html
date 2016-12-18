@@ -10,13 +10,6 @@
   <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.9/css/bootstrap-dialog.min.css" rel="stylesheet" type="text/css" />
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
-  <script>
-    jQuery.expr[':'].icontains = jQuery.expr.createPseudo(function (arg) {
-      return function (elem) {
-        return jQuery(elem).text().toUpperCase().indexOf(arg.toUpperCase()) >= 0
-      }
-    })
-  </script>
   <style>
     .well {
       margin-bottom: 5px;
@@ -133,7 +126,10 @@
         </select>
       </div>
 
-      <div class="dialog_edit_card form-group">
+      <div class="dialog_test form-group">
+        <span class="text-muted" data="test_status"></span>
+      </div>
+      <!-- <div class="dialog_edit_card form-group">
         <label for="delay">Delay</label>
         <input id="delay" class="form-control" type="text"  value="">
         <div class="arguments"></div>
@@ -147,7 +143,7 @@
       <div class="dialog_edit_card_argument text form-group">
         <label for="field"></label>
         <input id="field" class="form-control" type="number"  value="">
-      </div>
+      </div> -->
     </div>
   </div>
   <script>
@@ -162,6 +158,12 @@
   $.ajaxSetup({
     contentType : 'application/json',
     headers: {Authorization: 'Bearer ' + setup.bearer_token}
+  })
+
+  jQuery.expr[':'].icontains = jQuery.expr.createPseudo(function (arg) {
+    return function (elem) {
+      return jQuery(elem).text().toUpperCase().indexOf(arg.toUpperCase()) >= 0
+    }
   })
 
   String.prototype.capitalizeFirstLetter = function() {
@@ -228,10 +230,8 @@
       })
       $(newCard).find('[data=card_droptoken]').html(tokens)
     }
-
+    if (type === 'trigger') $(newCard).find('[data=move_card_btn], [data=test_card_btn]').remove()
     $(newCard).find('[data=test_card_btn]').attr('onClick', `testCard('${flowId}','${type}',${index})`)
-    if (type !== 'actions') $(newCard).find('[data=test_card_btn]').remove()
-    if (type === 'trigger') $(newCard).find('[data=move_card_btn]').remove()
     return newCard
   }
 
@@ -275,31 +275,16 @@
     return Object.getOwnPropertyNames(obj).length === 0
   }
 
-// ////////////////////////////////// HOMEY COPIED FUNCTIONS
   function conditionTitleParse (e, t) {
-    var a = e.match(/\!\{\{([^]+)\}\}/g)
-    return null === a ? e : (a.forEach(function(a) {
+    var a = e.match(/\!\{\{(.*?)\}\}/g)
+    if (a === null) return e
+    a.forEach(function(a) {
       var n = a
-      if ("!" == a.charAt(0) && (a = a.substring(1)),
-      a = a.replace("{{", ""),
-      a = a.replace("}}", ""),
-      a = a.split("|"),
-      t ? a = a[0] : ("" != a[0] && (a[0] = "&nbsp;" + a[0]),
-      "" != a[1] && (a[1] = "&nbsp;" + a[1]),
-      a = a[0] + a[1]),
-      e = e.replace(n, a),
-      !t) {
-        var o = e.indexOf(a)
-        o > 0 && (e = spliceSlice(e, o - 1, 1))
-      }
-    }),
-    e)
+      if('!' == a.charAt(0)) a = a.substring(1)
+      e = e.replace(n, a.replace('{{', '').replace('}}', '').split('|')[t ? 0 : 1] || '')
+    })
+    return e
   }
-
-  function spliceSlice(e, t, a, n) {
-    return e.slice(0, t) + (n || '') + e.slice(t + a)
-  }
-// ////////////////////////////////// HOMEY COPIED FUNCTIONS
 
   function getApp (uri) {
     return cards.filter(app => app.uri === uri)[0]
@@ -376,7 +361,7 @@
     folders.sort((a, b) => (a.sorting > b.sorting ? 1 : -1))
   }
 
-  function showFlows () {
+  function showFlows (callback) {
     flows.forEach(flow => {
       flow.order = formatOrderNumber(flow.order)
       if (flow.folder) flow.order = folderOrder(flow.folder) + flow.order
@@ -385,9 +370,25 @@
     flows.forEach(flow => {
       addFlow(flow)
     })
-    $.getScript(`${setup.protocol}://${setup.ip}/socket.io/socket.io.js`)
+    callback()
+  }
 
-    $('#wait').remove()
+  $.getScript(`${setup.protocol}://${setup.ip}/socket.io/socket.io.js`, () => {
+    loadDevices(() => {
+      loadFolders(() => {
+        loadCards(() => {
+          loadFlows(() => {
+            showFlows(() => {
+              $('#wait').remove()
+              setTimeout(ready, 1000)
+            })
+          })
+        })
+      })
+    })
+  })
+
+  function ready() {
     $('[data-toggle="tooltip"]').tooltip()
     $('[data=cards_action], [data=cards_condition]').sortable({
       handle: '[data=move_card_btn]',
@@ -408,16 +409,6 @@
       }
     })
   }
-
-  loadDevices(() => {
-    loadFolders(() => {
-      loadCards(() => {
-        loadFlows(() => {
-          showFlows()
-        })
-      })
-    })
-  })
 
   function copyFlow (flowId) {
     copyFlowDialog(flowId, function(newName, newFolder) {
@@ -592,6 +583,16 @@
     })
   }
 
+  function testDialog () {
+    var message = $('.dialog_test').clone()
+    $(message).find('[id=test_status]').html('xxxx')
+    return BootstrapDialog.show({
+      title: 'Testing',
+      message: message,
+      closable: false
+    })
+  }
+
   function orderArrayByIndexMap (array, indexMap) {
     var result = []
     indexMap.forEach((order, index) => result[index] = array[order])
@@ -626,10 +627,12 @@
   function search () {
     value = $('[id=search]').val()
     $('[data=flow]').hide()
-    $(`:contains(${value})`).parents('[data=flow]').show()
+    $(`:icontains(${value})`).parents('[data=flow]').show()
   }
-
+  var dialog
   function test (flowId, testFlow, testCardIndex) {
+    console.log(flowId, testFlow, testCardIndex)
+    dialog = testDialog()
     var socket = io.connect(`${setup.protocol}://${setup.ip}/realtime/manager/flow/`, {query: `token=${setup.bearer_token}`, transports: ['websocket', 'polling']})
     var session
     var cards = {total: testFlow.flow.conditions.length + testFlow.flow.actions.length, running: 0, passed: 0, failed: 0}
@@ -637,17 +640,20 @@
     socket.on('test', function (data) {
       if (data.test_id !== session) return
       cards[data.state] += 1
+      dialog.$modalDialog.find('span').html(JSON.stringify(cards))
       if (data.state === 'passed') {
-        $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(testCardIndex || data.card_index).css('background-color', 'lightgreen').animate({'background-color': '#f5f5f5'}, 500)
+        $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(testCardIndex || data.card_index).css('background-color', 'lightgreen').animate({'background-color': '#f5f5f5'}, 1500)
       }
       if (data.state === 'failed') {
-        $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(testCardIndex || data.card_index).css('background-color', 'red').animate({'background-color': '#f5f5f5'}, 1500)
+        $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(testCardIndex || data.card_index).css('background-color', 'red').animate({'background-color': '#f5f5f5'}, 3000)
         console.log('test failed', cards)
         socket.close()
+        dialog.addButton({ label: 'Close', action: function (dialogRef) { dialogRef.close() } }).updateButtons()
       }
       if (cards.total === cards.passed) {
         console.log('test complete', cards)
         socket.close()
+        dialog.addButton({ label: 'Close', action: function (dialogRef) { dialogRef.close() } }).updateButtons()
       }
     })
     socket.on('connect', function () {
@@ -673,13 +679,12 @@
     }
 
     if (!isEmptyObject(getFlow(flowId).trigger)) {
-
       (getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens || []).forEach(token => {
         testflow.tokens[token.name] = token.example.en
       })
     }
 
-    testflow.flow.actions.push(getFlow(flowId)[type][index])
+    testflow.flow[type].push(getFlow(flowId)[type][index])
     test(flowId, testflow, index)
   }
 
