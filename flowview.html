@@ -626,11 +626,15 @@
       var existingFlow = data.result
       existingFlow.conditions = orderArrayByIndexMap(existingFlow.conditions, conditionsOrder)
       existingFlow.actions = orderArrayByIndexMap(existingFlow.actions, actionsOrder)
+      getFlow(flowId).conditions = existingFlow.conditions
+      getFlow(flowId).actions = existingFlow.actions
       $.ajax({
         url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
         type: 'PUT',
         data: JSON.stringify(existingFlow),
         success: function(data) {
+          // reset order
+
           console.log('order saved')
           // location.reload()
         }
@@ -648,7 +652,7 @@
     dialog = testDialog()
     var socket = io.connect(`${setup.protocol}://${setup.ip}/realtime/manager/flow/`, {query: `token=${setup.bearer_token}`, transports: ['websocket', 'polling']})
     var session
-    var cards = {total: testFlow.flow.conditions.length + testFlow.flow.actions.length, running: 0, passed: 0, failed: 0}
+    var cards = {total: testFlow.flow.conditions.length + testFlow.flow.actions.length, running: 0, passed: 0, failed: 0, error: 0, errors: []}
     socket.on('test', function (data) {
       if (data.test_id !== session) return
       cards[data.state] += 1
@@ -656,15 +660,21 @@
         cards.running -= 1
         $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(testCardIndex || data.card_index).css('background-color', 'lightgreen').animate({'background-color': '#f5f5f5'}, 1500)
       }
-      if (data.state === 'failed') {
+      if (data.state === 'failed' || data.state === 'error') {
         cards.running -= 1
         $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(testCardIndex || data.card_index).css('background-color', 'red').animate({'background-color': '#f5f5f5'}, 3000)
-        socket.close()
-        dialog.updateButtons()
+        if (data.state === 'failed') {
+          socket.close()
+          dialog.setClosable(true)
+          dialog.updateButtons()
+        } else {
+          cards.errors.push(data.err)
+        }
       }
       dialog.$modalDialog.find('[data=test_status]').html(JSON.stringify(cards, null, 2))
-      if (cards.total === cards.passed) {
+      if (cards.total === (cards.passed + cards.error)) {
         socket.close()
+        dialog.setClosable(true)
         dialog.updateButtons()
       }
     })
@@ -718,7 +728,7 @@
 
     testflow.flow.conditions =  getFlow(flowId).conditions
     testflow.flow.actions = getFlow(flowId).actions
-    test(flowId, testflow, null)
+    if (testflow.flow.conditions.length + testflow.flow.actions.length > 0) test(flowId, testflow, null)
   }
 </script>
 </body>
