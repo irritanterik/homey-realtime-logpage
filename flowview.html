@@ -127,7 +127,8 @@
       </div>
 
       <div class="dialog_test form-group">
-        <span class="text-muted" data="test_status"></span>
+        <span class="text-muted" data="Progress:"></span>
+        <span class="text-muted" data="test_status">initializing...</span>
       </div>
       <!-- <div class="dialog_edit_card form-group">
         <label for="delay">Delay</label>
@@ -589,7 +590,20 @@
     return BootstrapDialog.show({
       title: 'Testing',
       message: message,
-      closable: false
+      closable: false,
+      onshow: function (dialogRef) {
+        dialogRef.enableButtons(false)
+        dialogRef.getButton('close').spin()
+      },
+      buttons: [
+        {
+          id: 'close',
+          label: 'Close',
+          action: function (dialogRef) {
+            dialogRef.close()
+          }
+        }
+      ]
     })
   }
 
@@ -631,29 +645,27 @@
   }
   var dialog
   function test (flowId, testFlow, testCardIndex) {
-    console.log(flowId, testFlow, testCardIndex)
     dialog = testDialog()
     var socket = io.connect(`${setup.protocol}://${setup.ip}/realtime/manager/flow/`, {query: `token=${setup.bearer_token}`, transports: ['websocket', 'polling']})
     var session
     var cards = {total: testFlow.flow.conditions.length + testFlow.flow.actions.length, running: 0, passed: 0, failed: 0}
-    console.log('testing flow', cards, flowId)
     socket.on('test', function (data) {
       if (data.test_id !== session) return
       cards[data.state] += 1
-      dialog.$modalDialog.find('span').html(JSON.stringify(cards))
       if (data.state === 'passed') {
+        cards.running -= 1
         $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(testCardIndex || data.card_index).css('background-color', 'lightgreen').animate({'background-color': '#f5f5f5'}, 1500)
       }
       if (data.state === 'failed') {
+        cards.running -= 1
         $('[flow_id=' + flowId + '] [data=cards_' + data.card_type + '] .well').eq(testCardIndex || data.card_index).css('background-color', 'red').animate({'background-color': '#f5f5f5'}, 3000)
-        console.log('test failed', cards)
         socket.close()
-        dialog.addButton({ label: 'Close', action: function (dialogRef) { dialogRef.close() } }).updateButtons()
+        dialog.updateButtons()
       }
+      dialog.$modalDialog.find('[data=test_status]').html(JSON.stringify(cards, null, 2))
       if (cards.total === cards.passed) {
-        console.log('test complete', cards)
         socket.close()
-        dialog.addButton({ label: 'Close', action: function (dialogRef) { dialogRef.close() } }).updateButtons()
+        dialog.updateButtons()
       }
     })
     socket.on('connect', function () {
