@@ -283,7 +283,7 @@
       if (Object.prototype.toString.call(definitions.args) === '[object Object]') definitions.args = [definitions.args]
       output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args.filter(item => item.name === argument)[0], card.args[argument]) + '<br>'
     })
-    output = output.replace('[[', '<code>').replace(']]', '</code>')
+    output = output.replace(/\[\[/g, '<code>').replace(/]\]/g, '</code>')
     return output
   }
 
@@ -292,6 +292,8 @@
       case 'autocomplete':
         return value.name
       case 'dropdown':
+        console.log(argDef, value)
+        console.log(argDef.values.filter(item => item.id === value))
         return argDef.values.filter(item => item.id === value)[0].label.en
       case 'color':
         return `<span class="colorbox" style="background-color: ${value}"> </span> (${value})`
@@ -719,16 +721,13 @@
       if (data.state === 'failed' || data.state === 'error') {
         cards.running -= 1
         $(`[data-flow-id=${flowId}] [data=cards_${data.card_type}] .well`).eq(testCardIndex || data.card_index).css('background-color', 'red').animate({'background-color': '#f5f5f5'}, 3000)
-        if (data.state === 'failed') {
-          socket.close()
-          dialog.setClosable(true)
-          dialog.updateButtons()
-        } else {
-          cards.errors.push(data.err)
-        }
+        if (data.state === 'error') cards.errors.push(data.err)
+        socket.close()
+        dialog.setClosable(true)
+        dialog.updateButtons()
       }
       dialog.$modalDialog.find('[data=test_status]').html(JSON.stringify(cards, null, 2))
-      if (cards.total === (cards.passed + cards.error)) {
+      if (cards.total === cards.passed) {
         socket.close()
         dialog.setClosable(true)
         dialog.updateButtons()
@@ -758,7 +757,11 @@
 
     if (!isEmptyObject(getFlow(flowId).trigger)) {
       (getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens || []).forEach(token => {
-        testflow.tokens[token.name] = token.example.en
+        if ((token.type || 'string').toLowerCase() === 'string') {
+          testflow.tokens[token.name] = token.example.en
+        } else {
+          testflow.tokens[token.name] = token.example
+        }
       })
     }
 
@@ -778,7 +781,11 @@
 
     if (!isEmptyObject(getFlow(flowId).trigger)) {
       (getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id).tokens || []).forEach(token => {
-        testflow.tokens[token.name] = token.example.en
+        if ((token.type || 'string').toLowerCase() === 'string') {
+          testflow.tokens[token.name] = token.example.en
+        } else {
+          testflow.tokens[token.name] = token.example
+        }
       })
     }
 
