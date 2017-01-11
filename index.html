@@ -91,7 +91,7 @@
     html += '<td class="event small">' + event.capitalizeFirstLetter() + '</td>'
     html += '<td class="data small text-muted">' + (!data ? '' : JSON.stringify(data)) + '</td></tr>'
     $('table#logs tbody tr:first').before(html)
-
+    $('#logs').find('tr:gt(1000)').remove()
     if (setting[category]) {
       $('.' + category).show()
     } else {
