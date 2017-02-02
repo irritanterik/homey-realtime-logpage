@@ -257,7 +257,7 @@
 
     $(newCard).find('[data=card_type_' + app.uriObj.type + ']').html(app.uriObj.name)
     if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions))
-    if (card.delay && card.delay.number > 0) $(newCard).find('[data=card_delay]').html('<i>delay</i>: ' + (card.delay.number * card.delay.multiplier) + ' seconds')
+    if (card.delay && card.delay.number !== '0') $(newCard).find('[data=card_delay]').html('<i>delay</i>: ' + card.delay.number + (card.delay.multiplier === '60' ? ' minute' : ' second') + (card.delay.number !== '1' ? 's' : ''))
     if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: <code>' + (card.droptoken) + '</code>')
     if (definitions.tokens) {
       var tokens = '<i>tokens</i>: '
