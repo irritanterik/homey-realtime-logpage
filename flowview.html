@@ -218,7 +218,7 @@
     $(newFlow).find('[data=copy_btn]').attr('onClick', `copyFlow('${flow.id}')`)
     $(newFlow).find('[data=delete_btn]').attr('onClick', `deleteFlow('${flow.id}')`)
     $(newFlow).find('[data=test_btn]').attr('onClick', `testFlow('${flow.id}')`)
-    if (flow.folder) $(newFlow).find('[data=flow_path]').html('<i class="fa fa-folder-open" aria-hidden="true"></i> ' + formatFolder(flow.folder))
+    $(newFlow).find('[data=flow_path]').html('<i class="fa fa-folder-open" aria-hidden="true"></i> ' + (flow.folder ? formatFolder(flow.folder) : ''))
     if (flow.broken) {
       $(newFlow).find('[data=flow]').removeClass("panel-success").addClass("panel-danger")
       $(newFlow).find('[data=label_broken]').html("BROKEN")
@@ -293,8 +293,8 @@
         return value.name
       case 'dropdown':
         console.log(argDef, value)
-        console.log(argDef.values.filter(item => item.id === value))
-        return argDef.values.filter(item => item.id === value)[0].label.en
+        console.log(argDef.values.filter(item => item.id.toString() === value.toString()))
+        return argDef.values.filter(item => item.id.toString() === value.toString())[0].label.en
       case 'color':
         return `<span class="colorbox" style="background-color: ${value}"> </span> (${value})`
       case 'range':
