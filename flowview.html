@@ -93,7 +93,7 @@
                     <span class="label label-danger" data="label_broken"></span>
                     <button class="btn btn-default" data="toggle_btn" data-toggle="tooltip" title="Enable or disable"><i class="fa fa-square-o"></i></button>
                     <button class="btn btn-default" data="edit_btn"   data-toggle="tooltip" title="Rename & Move"><i class="fa fa-pencil"></i></button>
-                    <button class="btn btn-default" data="copy_btn"   data-toggle="tooltip" title="Copy"><i class="fa fa-clone"></i></button>
+                    <!-- <button class="btn btn-default" data="copy_btn"   data-toggle="tooltip" title="Copy"><i class="fa fa-clone"></i></button> -->
                     <button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="Delete"><i class="fa fa-remove"></i></button>
                   </div>
                 </div>
@@ -101,16 +101,28 @@
               <div class="panel-body">
                 <div class="row">
                   <div class="col-sm-2 small">
-                    <div class="text-muted">Trigger</div>
-                    <span data="cards_trigger"/>
+                    <span data="cards_trigger">
+                      <div class="text-muted">When</div>
+                    </span>
                   </div>
                   <div class="col-sm-5 small">
-                    <div class="text-muted">Conditions</div>
-                    <span data="cards_condition"/>
+                    <span data="cards_condition_group1">
+                      <div class="text-muted">And</div>
+                    </span>
+                    <span data="cards_condition_group2">
+                      <div class="text-muted">Or</div>
+                    </span>
+                    <span data="cards_condition_group3">
+                      <div class="text-muted">Or</div>
+                    </span>
                   </div>
                   <div class="col-sm-5 small">
-                    <div class="text-muted">Actions</div>
-                    <span data="cards_action"/>
+                    <span data="cards_action_then">
+                      <div class="text-muted">Then</div>
+                    </span>
+                    <span data="cards_action_else">
+                      <div class="text-muted">Else</div>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -211,8 +223,11 @@
     $(newFlow).find('[data=flow]').attr('data-flow-id', flow.id)
     $(newFlow).find('[data=title]').html(`<a href="${setup.protocol}://${setup.ip}/manager/flow/#${flow.id}" target=_new>${flow.title}</a>`)
     $(newFlow).find('[data=cards_trigger]').append(formatCard(flow.id, flow.trigger, 'trigger', 0).html())
-    $(newFlow).find('[data=cards_condition]').append(formatCards(flow, 'conditions').html())
-    $(newFlow).find('[data=cards_action]').append(formatCards(flow, 'actions').html())
+    $(newFlow).find('[data=cards_condition_group1]').append(formatCards(flow, 'conditions', 'group1').html())
+    $(newFlow).find('[data=cards_condition_group2]').append(formatCards(flow, 'conditions', 'group2').html())
+    $(newFlow).find('[data=cards_condition_group3]').append(formatCards(flow, 'conditions', 'group3').html())
+    $(newFlow).find('[data=cards_action_then]').append(formatCards(flow, 'actions', 'then').html())
+    $(newFlow).find('[data=cards_action_else]').append(formatCards(flow, 'actions', 'else').html())
     $(newFlow).find('[data=toggle_btn]').attr('onClick', `toggleFlow('${flow.id}')`)
     $(newFlow).find('[data=edit_btn]').attr('onClick', `editFlow('${flow.id}')`)
     $(newFlow).find('[data=copy_btn]').attr('onClick', `copyFlow('${flow.id}')`)
@@ -223,27 +238,39 @@
       $(newFlow).find('[data=flow]').removeClass("panel-success").addClass("panel-danger")
       $(newFlow).find('[data=label_broken]').html("BROKEN")
     }
+    if ($(newFlow).find('[data=cards_condition_group1] .card').size() === 0 ) $(newFlow).find('[data=cards_condition_group1]').remove()
+    if ($(newFlow).find('[data=cards_condition_group2] .card').size() === 0 ) $(newFlow).find('[data=cards_condition_group2]').remove()
+    if ($(newFlow).find('[data=cards_condition_group3] .card').size() === 0 ) $(newFlow).find('[data=cards_condition_group3]').remove()
+    if ($(newFlow).find('[data=cards_action_then] .card').size() === 0 ) $(newFlow).find('[data=cards_action_then]').remove()
+    if ($(newFlow).find('[data=cards_action_else] .card').size() === 0 ) $(newFlow).find('[data=cards_action_else]').remove()
     $('#flows').append(newFlow.html())
     showFlowToggleButton(flow.id)
   }
 
-  function noCard () {
+  function noCard (id) {
     var noCard = $('<div />')
-    noCard.html('<br><span class="label label-danger">NO CARD</span>')
+    if (id) {
+      noCard.html(`<br><span class="label label-danger">NO CARD (${id})</span>`)
+    } else {
+      noCard.html('<br><span class="label label-danger">NO CARD</span>')
+    }
     return noCard
   }
 
-  function formatCards (flow, type) {
-    if (type === 'actions' && flow[type].length === 0) return noCard()
+  function formatCards (flow, type, group) {
+    // if (type === 'actions' && flow[type].length === 0) return noCard()
     var newCards = $("<div />")
     flow[type].forEach(function (card, index) {
-      newCards.append(formatCard(flow.id, card, type, index).html())
+      if (!group || card.group === group) {
+        newCards.append(formatCard(flow.id, card, type, index).html())
+      }
     })
     return newCards
   }
 
   function formatCard (flowId, card, type, index) {
     if (isEmptyObject(card)) return noCard()
+    if (card.broken) return noCard(card.id)
     var newCard = $('.template_card').clone()
     var definitions = getCard(card.uri, (type === 'trigger') ? type : type.slice(0, -1), card.id)
     var app = getApp(card.uri)
@@ -292,8 +319,6 @@
       case 'autocomplete':
         return value.name
       case 'dropdown':
-        console.log(argDef, value)
-        console.log(argDef.values.filter(item => item.id.toString() === value.toString()))
         return argDef.values.filter(item => item.id.toString() === value.toString())[0].label.en
       case 'color':
         return `<span class="colorbox" style="background-color: ${value}"> </span> (${value})`
@@ -304,7 +329,6 @@
       case 'time':
         return value
       default:
-        console.log(argDef, value)
         return value
     }
   }
@@ -325,7 +349,7 @@
   }
 
   function getApp (uri) {
-    return cards.filter(app => app.uri === uri)[0]
+    return cards.filter(app => app.uri === uri)[0] || {cards: { trigger: []}}
   }
 
   function getCard (uri, type, id) {
