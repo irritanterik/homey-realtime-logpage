@@ -106,10 +106,10 @@
                   <div class="col-sm-4 text-right">
                     <span class="label label-default" data="label_disabled"></span>
                     <span class="label label-danger" data="label_broken"></span>
-                    <!-- <button class="btn btn-default" data="toggle_btn" data-toggle="tooltip" title="Enable or disable"><i class="fa fa-square-o"></i></button> -->
-                    <!-- <button class="btn btn-default" data="edit_btn"   data-toggle="tooltip" title="Rename & Move"><i class="fa fa-pencil"></i></button> -->
+                    <button class="btn btn-default" data="toggle_btn" data-toggle="tooltip" title="Enable or disable"><i class="fa fa-square-o"></i></button>
+                    <button class="btn btn-default" data="edit_btn"   data-toggle="tooltip" title="Rename & Move"><i class="fa fa-pencil"></i></button>
                     <!-- <button class="btn btn-default" data="copy_btn"   data-toggle="tooltip" title="Copy"><i class="fa fa-clone"></i></button> -->
-                    <!-- <button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="Delete"><i class="fa fa-remove"></i></button> -->
+                    <button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="Delete"><i class="fa fa-remove"></i></button>
                   </div>
                 </div>
               </div>
@@ -628,20 +628,15 @@
   function editFlow (flowId) {
     editFlowDialog(flowId, function(newName, newFolder) {
       if (newName) {
-        if (newFolder === 'false') newFolder = false
-        $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`, function(data) {
-          if (data.status !== 200) return alert('Edit failure... getting existing flow')
-          var existingFlow = data.result
-          existingFlow.title = newName
-          existingFlow.folder = newFolder
-          $.ajax({
-            url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
-            type: 'PUT',
-            data: JSON.stringify(existingFlow),
-            success: function(data) {
-              location.reload()
-            }
-          })
+        if (newFolder === 'false') newFolder = null
+        var saveFlow = {name: newName, folder: newFolder}
+        $.ajax({
+          url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
+          type: 'PUT',
+          data: JSON.stringify(saveFlow),
+          success: function(data) {
+            location.reload()
+          }
         })
       }
     })
@@ -713,11 +708,11 @@
 
   function editFlowDialog (flowId, callback) {
     var message = $('.dialog_edit').clone()
-    $(message).find('[id=editName]').attr('value', `${getFlow(flowId).title}`)
+    $(message).find('[id=editName]').attr('value', `${getFlow(flowId).name}`)
     folders.forEach(folder => {
       $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
     })
-    $(message).find('[id=editFolder]').val(getFlow(flowId).folder.toString())
+    $(message).find('[id=editFolder]').val((getFlow(flowId).folder || false).toString())
     BootstrapDialog.show({
       title: 'Edit and move flow',
       message: message,
@@ -804,7 +799,10 @@
     $(`:icontains(${value})`).parents('#flows [data=flow]').show()
   }
   var dialog
+
   function test (flowId, testFlow, testCardIndex) {
+// v2: POST to api/manager/flow/flow/test waarbij body {flow: trigger: {..}, conditions: {..}, actions: {..}}
+
     dialog = testDialog()
     var socket = io.connect(`${setup.protocol}://${setup.ip}/realtime/manager/flow/`, {query: `token=${setup.bearer_token}`, transports: ['websocket', 'polling']})
     var session
