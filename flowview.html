@@ -65,10 +65,13 @@
       <div class=container-fluid>
         <h1>Homey 2 flow viewer</h1>
         <div class="row">
-          <div class="form-group col-sm-3">
+          <div class="form-group col-sm-2">
             <a href="#menu-toggle" class="btn btn-default" id="menu-toggle">Toggle folders</a>
           </div>
-          <div class="col-sm-9">
+          <div class="form-group col-sm-2">
+            <a href="#token-toggle" class="btn btn-default" id="token-toggle">Toggle tokens</a>
+          </div>
+          <div class="col-sm-8">
             <div class="form-group has-feedback">
               <input id="search" type="text" class="form-control" placeholder="Search" onKeyDown="search()" onKeyUp="search()" onChange="search()"/>
               <i class="glyphicon glyphicon-search form-control-feedback"></i>
@@ -76,8 +79,20 @@
           </div>
         </div>
 
+        <div id="tokens" class="hide"></div>
+
         <div id="flows"></div>
+
         <div class="hide">
+          <div class="template_token">
+              <div class="row">
+                <div class="col-sm-3"><span data="token_uri"></div>
+                <div class="col-sm-3"><span data="token_title"></div>
+                <div class="col-sm-3"><span data="token_type"></div>
+                <div class="col-sm-3"><span data="token_value"></div>
+              </div>
+          </div>
+
           <div class="template_flow">
             <div class="panel panel-success" data="flow" data-flow-id="">
               <div class="panel-heading">
@@ -204,6 +219,7 @@
   var cards
   var folders = []
   var flows = []
+  var tokens = []
 
   if (setup.ip === '0.0.0.0') alert('Configure your Homey IP in this script...')
   if (setup.bearer_token === 'your token') alert('Configure your Bearer token in this script...')
@@ -221,6 +237,15 @@
 
   String.prototype.capitalizeFirstLetter = function() {
       return this.charAt(0).toUpperCase() + this.slice(1)
+  }
+
+  function addToken (token) {
+    var newToken = $('.template_token').clone()
+    $(newToken).find('[data=token_uri]').html(token.uriObj.name)
+    $(newToken).find('[data=token_title]').html(token.title)
+    $(newToken).find('[data=token_type]').html(token.type)
+    $(newToken).find('[data=token_value]').html(token.value)
+    $('#tokens').append(newToken.html())
   }
 
   function addFlow (flow) {
@@ -437,6 +462,16 @@
     })
   }
 
+  function loadTokens (callback) {
+    tokens = []
+    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flowtoken/flowtoken/`, function(data) {
+      $.each(data, function (index, token) {
+        tokens.push(token)
+      })
+      callback()
+    })
+  }
+
   function folderOrder (id) {
     var order = formatOrderNumber(getFolder(id).order) + '|'
     if (getFolder(id).folder) order = folderOrder(getFolder(id).folder) + order
@@ -466,13 +501,24 @@
     callback()
   }
 
+  function showTokens (callback) {
+    tokens.forEach(token => {
+      addToken(token)
+    })
+    callback()
+  }
+
   $.getScript(`${setup.protocol}://${setup.ip}/socket.io/socket.io.js`, () => {
     loadDevices(() => {
       loadFolders(() => {
         loadCards(() => {
           loadFlows(() => {
             showFlows(() => {
-              setTimeout(ready, 1000)
+              loadTokens(() => {
+                showTokens(() => {
+                  setTimeout(ready, 1000)
+                })
+              })
             })
           })
         })
@@ -932,6 +978,10 @@
     e.preventDefault()
     $("#wrapper").toggleClass("toggled")
    })
+   $("#token-toggle").click(function (e) {
+     e.preventDefault()
+     $("#tokens").toggleClass("hide")
+    })
 </script>
 </body>
 </html>
