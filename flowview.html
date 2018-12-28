@@ -63,7 +63,7 @@
     </div>
     <div id="page-content-wrapper">
       <div class=container-fluid>
-        <h1>Homey flow viewer</h1>
+        <h1>Homey 2 flow viewer</h1>
         <div class="row">
           <div class="form-group col-sm-3">
             <a href="#menu-toggle" class="btn btn-default" id="menu-toggle">Toggle folders</a>
@@ -91,14 +91,19 @@
                   <div class="col-sm-4 text-right">
                     <span class="label label-default" data="label_disabled"></span>
                     <span class="label label-danger" data="label_broken"></span>
-                    <button class="btn btn-default" data="toggle_btn" data-toggle="tooltip" title="Enable or disable"><i class="fa fa-square-o"></i></button>
-                    <button class="btn btn-default" data="edit_btn"   data-toggle="tooltip" title="Rename & Move"><i class="fa fa-pencil"></i></button>
+                    <!-- <button class="btn btn-default" data="toggle_btn" data-toggle="tooltip" title="Enable or disable"><i class="fa fa-square-o"></i></button> -->
+                    <!-- <button class="btn btn-default" data="edit_btn"   data-toggle="tooltip" title="Rename & Move"><i class="fa fa-pencil"></i></button> -->
                     <!-- <button class="btn btn-default" data="copy_btn"   data-toggle="tooltip" title="Copy"><i class="fa fa-clone"></i></button> -->
-                    <button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="Delete"><i class="fa fa-remove"></i></button>
+                    <!-- <button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="Delete"><i class="fa fa-remove"></i></button> -->
                   </div>
                 </div>
               </div>
               <div class="panel-body">
+                <div class="row">
+                  <div class="col-sm-12 small text-center">
+                    <div class="text-muted">Triggered <span data="triggercount"></span> times.</div>
+                  </div>
+                </div>
                 <div class="row">
                   <div class="col-sm-2 small">
                     <span data="cards_trigger">
@@ -219,9 +224,11 @@
   }
 
   function addFlow (flow) {
+    // console.log('adding flow ', flow.name, flow)
     var newFlow = $('.template_flow').clone()
     $(newFlow).find('[data=flow]').attr('data-flow-id', flow.id)
-    $(newFlow).find('[data=title]').html(`<a href="${setup.protocol}://${setup.ip}/manager/flow/#${flow.id}" target=_new>${flow.title}</a>`)
+    $(newFlow).find('[data=title]').html(flow.name)
+    $(newFlow).find('[data=triggercount]').html(flow.triggerCount)
     $(newFlow).find('[data=cards_trigger]').append(formatCard(flow.id, flow.trigger, 'trigger', 0).html())
     $(newFlow).find('[data=cards_condition_group1]').append(formatCards(flow, 'conditions', 'group1').html())
     $(newFlow).find('[data=cards_condition_group2]').append(formatCards(flow, 'conditions', 'group2').html())
@@ -273,23 +280,31 @@
     if (card.broken) return noCard(card.id)
     var newCard = $('.template_card').clone()
     var definitions = getCard(card.uri, (type === 'trigger') ? type : type.slice(0, -1), card.id)
+    if (definitions === undefined) {
+      console.error ('no definitions found for card ', type, card.uri)
+      return noCard()
+    }
     var app = getApp(card.uri)
-
+    if (app === undefined) {
+      console.error ('no app found for card ', type, card.uri)
+      return noCard()
+    }
     $(newCard).find('[data=card]').attr('card_index', index)
     if (type === 'conditions') {
-      $(newCard).find('[data=card_title]').html(conditionTitleParse(definitions.title.en, !card.inverted))
+      $(newCard).find('[data=card_title]').html(conditionTitleParse(definitions.title, !card.inverted))
     } else {
-      $(newCard).find('[data=card_title]').html(definitions.title.en)
+      $(newCard).find('[data=card_title]').html(definitions.title)
     }
 
     $(newCard).find('[data=card_type_' + app.uriObj.type + ']').html(app.uriObj.name)
-    if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions))
+    if (card.args) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions))
+    // if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions))
     if (card.delay && card.delay.number !== '0') $(newCard).find('[data=card_delay]').html('<i>delay</i>: ' + card.delay.number + (card.delay.multiplier === '60' ? ' minute' : ' second') + (card.delay.number !== '1' ? 's' : ''))
     if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: <code>' + (card.droptoken) + '</code>')
     if (definitions.tokens) {
       var tokens = '<i>tokens</i>: '
       definitions.tokens.forEach(token => {
-        tokens += '<code>' + (token.name) + '</code> '
+        tokens += '<code>' + (token.title) + '</code> '
       })
       $(newCard).find('[data=card_droptoken]').html(tokens)
     }
@@ -299,8 +314,8 @@
   }
 
   function formatFolder (id) {
-    var result = getFolder(id).title
-    if (getFolder(id).folder) result = formatFolder(getFolder(id).folder) + " > " + result
+    var result = getFolder(id).name
+    if (getFolder(id).parent) result = formatFolder(getFolder(id).parent) + " > " + result
     return result
   }
 
@@ -315,15 +330,16 @@
   }
 
   function formatArgValue (argDef, value) {
+    if (argDef === undefined) argDef = {type: 'text'}  //todo: v2 workaround
     switch (argDef.type) {
       case 'autocomplete':
         return value.name
       case 'dropdown':
-        return argDef.values.filter(item => item.id.toString() === value.toString())[0].label.en
+        return argDef.values.filter(item => item.id.toString() === value.toString())[0].title
       case 'color':
         return `<span class="colorbox" style="background-color: ${value}"> </span> (${value})`
       case 'range':
-        return value * (argDef.labelMultiplier || 1) + (argDef.label || '')
+        return value * (argDef.labelMultiplier || 1) + (argDef.title || '')
       case 'text':
       case 'number':
       case 'time':
@@ -348,12 +364,14 @@
     return e
   }
 
+
   function getApp (uri) {
-    return cards.filter(app => app.uri === uri)[0] || {cards: { trigger: []}}
+    // return cards.filter(app => app.uri === uri)[0] || {cards: { trigger: []}}
+    return cards.trigger.filter(app => app.uri === uri)[0] || cards.condition.filter(app => app.uri === uri)[0] || cards.action.filter(app => app.uri === uri)[0]
   }
 
   function getCard (uri, type, id) {
-    return getApp(uri).cards[type].filter(card => card.id === id)[0]
+    return cards[type].filter(card => card.id === id)[0]
   }
 
   function getDevice (id) {
@@ -369,15 +387,28 @@
   }
 
   function loadCards (callback) {
-    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/card/`, function(data) {
-      cards = data.result
-      callback()
+    cards = {trigger: [], condition: [], action: []}
+    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowcardtrigger/`, function(data) {
+      $.each(data, function (index, resultCardTrigger) {
+        cards.trigger.push(resultCardTrigger)
+      })
+      $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowcardcondition/`, function(data) {
+        $.each(data, function (index, resultCardCondition) {
+          cards.condition.push(resultCardCondition)
+        })
+        $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowcardaction/`, function(data) {
+          $.each(data, function (index, resultCardAction) {
+            cards.action.push(resultCardAction)
+          })
+          callback()
+        })
+      })
     })
   }
 
   function loadDevices (callback) {
     $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/devices/device/`, function(data) {
-      $.each(data.result, function (index, resultDevice) {
+      $.each(data, function (index, resultDevice) {
         devices.push({id: resultDevice.id, name: resultDevice.name})
       })
       callback()
@@ -388,7 +419,7 @@
     // get all flow folders
     flows = []
     $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/`, function(data) {
-      $.each(data.result, function (index, flow) {
+      $.each(data, function (index, flow) {
         flows.push(flow)
       })
       callback()
@@ -397,8 +428,8 @@
 
   function loadFolders (callback) {
     folders = []
-    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/folder/`, function(data) {
-      $.each(data.result, function (index, folder) {
+    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/`, function(data) {
+      $.each(data, function (index, folder) {
         folders.push(folder)
       })
       sortFolders()
@@ -823,17 +854,17 @@
       var tree = []
       for (var folderIndex in folders) {
         var folder = folders[folderIndex]
-        if (folder.folder == parent) {
-          var node = {text: folder.title, nodes: treeBuild(folder.id), order: folder.order, id: folder.id}
+        if (folder.parent == parent) {
+          var node = {text: folder.name, nodes: treeBuild(folder.id), order: folder.sorting, id: folder.id}
           if (node.nodes.length === 0) delete node.nodes
-          var flowCount = flows.filter(flow => flow.folder === folder.id).length
+          var flowCount = flows.filter(flow => flow.parent === folder.id).length
           if (flowCount > 0) node.tags = [flowCount]
           tree.push(node)
         }
       }
       return tree.sort(function (a, b) { return a.order > b.order ? 1 : -1})
     }
-    return treeBuild(false)
+    return treeBuild(null)
   }
 
   function setFlowsDraggable() {
