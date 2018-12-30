@@ -157,7 +157,7 @@
                 <span class="label label-success pull-right" data="card_type_device"></span>
                 <span class="label label-info pull-right" data="card_type_app"></span>
                 <span class="label label-primary pull-right" data="card_type_manager"></span>
-                <span class="text-muted draghandle-v" data="move_card_btn"><i class="fa fa-arrows"></i></span>&nbsp;
+                <!-- <span class="text-muted draghandle-v" data="move_card_btn"><i class="fa fa-arrows"></i></span>&nbsp; -->
                 <!-- <span class="text-muted" data="edit_card_btn" data-toggle="tooltip" title="Edit"><i class="fa fa-pencil"></i></span>&nbsp; -->
                 <span class="text-muted" data="test_card_btn" data-toggle="tooltip" title="Test"><i class="fa fa-play"></i></span>
                 &nbsp;&nbsp;
@@ -335,7 +335,7 @@
       })
       $(newCard).find('[data=card_droptoken]').html(tokens)
     }
-    if (type === 'trigger') $(newCard).find('[data=move_card_btn], [data=test_card_btn]').remove()
+    // if (type === 'trigger') $(newCard).find('[data=move_card_btn], [data=test_card_btn]').remove()
     $(newCard).find('[data=test_card_btn]').attr('onClick', `testCard('${flowId}','${type}',${index})`)
     return newCard
   }
@@ -559,7 +559,7 @@
     setTooltips()
     setFlowsDraggable()
     setFoldersDroppable()
-    setFlowCardsSortable()
+    // setFlowCardsSortable()
   }
 
   function copyFlow (flowId) {
@@ -777,27 +777,27 @@
     return result
   }
 
-  function saveFlowCardOrder (flowId, conditionsOrder, actionsOrder) {
-    if (!(indexMapHasChanged(conditionsOrder) || indexMapHasChanged(actionsOrder))) return
-    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`, function(data) {
-      if (data.status !== 200) return alert('Failure... getting existing flow')
-      var existingFlow = data.result
-      existingFlow.conditions = orderArrayByIndexMap(existingFlow.conditions, conditionsOrder)
-      existingFlow.actions = orderArrayByIndexMap(existingFlow.actions, actionsOrder)
-      getFlow(flowId).conditions = existingFlow.conditions
-      getFlow(flowId).actions = existingFlow.actions
-      $.ajax({
-        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
-        type: 'PUT',
-        data: JSON.stringify(existingFlow),
-        success: function(data) {
-          // reset order
-          console.log('order saved')
-          // location.reload()
-        }
-      })
-    })
-  }
+  // function saveFlowCardOrder (flowId, conditionsOrder, actionsOrder) {
+  //   if (!(indexMapHasChanged(conditionsOrder) || indexMapHasChanged(actionsOrder))) return
+  //   $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`, function(data) {
+  //     if (data.status !== 200) return alert('Failure... getting existing flow')
+  //     var existingFlow = data.result
+  //     existingFlow.conditions = orderArrayByIndexMap(existingFlow.conditions, conditionsOrder)
+  //     existingFlow.actions = orderArrayByIndexMap(existingFlow.actions, actionsOrder)
+  //     getFlow(flowId).conditions = existingFlow.conditions
+  //     getFlow(flowId).actions = existingFlow.actions
+  //     $.ajax({
+  //       url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
+  //       type: 'PUT',
+  //       data: JSON.stringify(existingFlow),
+  //       success: function(data) {
+  //         // reset order
+  //         console.log('order saved')
+  //         // location.reload()
+  //       }
+  //     })
+  //   })
+  // }
 
   function search () {
     value = $('[id=search]').val()
@@ -968,7 +968,7 @@
     })
     $("#flows").html(list)
     setFlowsDraggable()
-    setFlowCardsSortable()
+    // setFlowCardsSortable()
     setTooltips()
   }
 
@@ -987,27 +987,29 @@
       }
     })
   }
-
-  function setFlowCardsSortable() {
-    $('[data=cards_action], [data=cards_condition]').sortable({
-      handle: '[data=move_card_btn]',
-      tolerance: 'pointer',
-      revert: 'invalid',
-      placeholder: 'placeholder well well-sm',
-      forceHelperSize: true,
-      start: function(event, ui) {
-        ui.placeholder.height(ui.item.find('.well').height())
-      },
-      stop: function (event, ui) {
-        var flowId = ui.item.parents('[data=flow]').attr('data-flow-id')
-        var actionsOrder = []
-        var conditionsOrder = []
-        $(`[data-flow-id=${flowId}] [data=cards_condition] .card`).each(function (card) { conditionsOrder.push($(this).attr('card_index') * 1); $(this).attr('card_index', card) } )
-        $(`[data-flow-id=${flowId}] [data=cards_action] .card`).each(function (card) { actionsOrder.push($(this).attr('card_index') * 1); $(this).attr('card_index', card) } )
-        saveFlowCardOrder(flowId, conditionsOrder, actionsOrder)
-      }
-    })
-  }
+//
+//   function setFlowCardsSortable() {
+//     $('[data=cards_action_then], [data=cards_action_else], [data=cards_condition_group1], [data=cards_condition_group2], [data=cards_condition_group3]').sortable({
+//       handle: '[data=move_card_btn]',
+//       tolerance: 'pointer',
+//       revert: 'invalid',
+//       placeholder: 'placeholder well well-sm',
+//       forceHelperSize: true,
+//       start: function(event, ui) {
+//         ui.placeholder.height(ui.item.find('.well').height())
+//       },
+//       stop: function (event, ui) {
+// //
+//         var flowId = ui.item.parents('[data=flow]').attr('data-flow-id')
+//         var actionsOrder = []
+//         var conditionsOrder = []
+//         $(`[data-flow-id=${flowId}] [data=cards_condition] .card`).each(function (card) { conditionsOrder.push($(this).attr('card_index') * 1); $(this).attr('card_index', card) } )
+//         $(`[data-flow-id=${flowId}] [data=cards_action] .card`).each(function (card) { actionsOrder.push($(this).attr('card_index') * 1); $(this).attr('card_index', card) } )
+//
+//         // saveFlowCardOrder(flowId, conditionsOrder, actionsOrder)
+//       }
+//     })
+//   }
 
   function setTooltips() { $('[data-toggle="tooltip"]').tooltip() }
 
