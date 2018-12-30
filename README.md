@@ -7,6 +7,7 @@ setup = {
   ip: '0.0.0.0',                // Put your ip here or athom cloud uri,
   bearer_token: 'your token',   // Put your V2 bearer token here (i got mine sniffing on app <> homey communications)
   protocol: 'http'              // Change to https if using athom cloud
+  homeyId: 'yourhomeyid'        // Put your Homey Cloud ID here (same as athom cloud uri)
 }
 ```
 
@@ -19,4 +20,4 @@ View, search, organize, copy, re-order and test your Homey flows.
 
 ### Realtime Logger (index.html)
 Flow events are only logged during test-runs (started with test-button in flow editor).
-NOT WORKING ON HOMEY V2
+NOT WORKING ON HOMEY V2 YET
