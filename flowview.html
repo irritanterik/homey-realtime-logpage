@@ -620,19 +620,14 @@
   }
 
   function updateFlowFolder (flowId, folderId) {
-    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`, function(data) {
-      if (data.status !== 200) return alert('Save failure... getting existing flow')
-      var existingFlow = data.result
-
-      existingFlow.folder = folderId
-      $.ajax({
-        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
-        type: 'PUT',
-        data: JSON.stringify(existingFlow),
-        success: function(data) {
-          location.reload()
-        }
-      })
+    var saveFlow = {name: getFlow(flowId).name, folder: folderId}
+    $.ajax({
+      url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
+      type: 'PUT',
+      data: JSON.stringify(saveFlow),
+      success: function(data) {
+        location.reload()
+      }
     })
   }
 
