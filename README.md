@@ -12,7 +12,8 @@ setup = {
 ```
 
 ### Discover your bearer_token
-This tool does not use the new web API with neat authentication. I descovered my token by sniffing traffic between the Homey app and Homey with a packet capture app on an Android device.
+This tool does not use the new web API with neat authentication. See [here](getbearer.md) to get your bearer-token.
+You could also find your token by sniffing traffic between the Homey app and Homey with a packet capture app on an Android device.
 
 ### Flow Viewer (flowview.html)
 View, search, organize, copy, re-order and test your Homey flows.
