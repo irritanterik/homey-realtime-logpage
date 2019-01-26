@@ -966,7 +966,7 @@
         if (folder.parent == parent) {
           var node = {text: folder.name, nodes: treeBuild(folder.id), order: folder.sorting, id: folder.id}
           if (node.nodes.length === 0) delete node.nodes
-          var flowCount = flows.filter(flow => flow.parent === folder.id).length
+          var flowCount = flows.filter(flow => flow.folder === folder.id).length
           if (flowCount > 0) node.tags = [flowCount]
           tree.push(node)
         }
