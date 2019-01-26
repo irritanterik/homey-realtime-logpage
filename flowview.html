@@ -14,12 +14,35 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.9/css/bootstrap-dialog.min.css" rel="stylesheet" type="text/css" />
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
   <style>
+    body {
+      background-image: linear-gradient(#187596, #029680);
+      font-family: Roboto,Helvetica,sans-serif;
+    }
+
+    h1 {
+      color: white;
+    }
+
+    .panel-heading {
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+    }
+
+    .panel {
+      background-color: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 12px;
+    }
+
     .well {
       margin-bottom: 5px;
+      background-color: white;
+      border: none;
+      border-radius: 6px;
     }
     .col-sm-5, .col-sm-2 {
-      padding-right: 5px;
-      padding-left: 5px;
+      padding-right: 10px;
+      padding-left: 10px;
     }
 
     .node-folders {
@@ -117,32 +140,32 @@
               <div class="panel-body">
                 <div class="row">
                   <div class="col-sm-12 small text-center">
-                    <div class="text-muted">Triggered <span data="triggercount"></span> times.</div>
+                    <div>Triggered <span data="triggercount"></span> times.</div>
                   </div>
                 </div>
                 <div class="row">
                   <div class="col-sm-2 small">
                     <span data="cards_trigger">
-                      <div class="text-muted">When</div>
+                      <div>When</div>
                     </span>
                   </div>
                   <div class="col-sm-5 small" data="cards_condition">
                     <span data="cards_condition_group1">
-                      <div class="text-muted">And</div>
+                      <div>And</div>
                     </span>
                     <span data="cards_condition_group2">
-                      <div class="text-muted">Or</div>
+                      <div>Or</div>
                     </span>
                     <span data="cards_condition_group3">
-                      <div class="text-muted">Or</div>
+                      <div>Or</div>
                     </span>
                   </div>
                   <div class="col-sm-5 small" data="cards_action">
                     <span data="cards_action_then">
-                      <div class="text-muted">Then</div>
+                      <div>Then</div>
                     </span>
                     <span data="cards_action_else">
-                      <div class="text-muted">Else</div>
+                      <div>Else</div>
                     </span>
                   </div>
                 </div>
@@ -211,7 +234,7 @@
     </div>
     <footer class="footer">
       <div class="container">
-        <p class="text-muted">flows: <span id=flow_count>loading...</span></p>
+        <p>flows: <span id=flow_count>loading...</span></p>
       </div>
     </footer>
   </div>
@@ -303,6 +326,7 @@
   }
 
   function formatCard (flowId, card, type, index) {
+    console.log(flowId)
     if (isEmptyObject(card)) return noCard()
     if (card.broken) return noCard(card.id)
     var newCard = $('.template_card').clone()
@@ -322,8 +346,8 @@
     } else {
       $(newCard).find('[data=card_title]').html(definitions.title)
     }
-
     $(newCard).find('[data=card_type_' + app.uriObj.type + ']').html(app.uriObj.name)
+    if (app.uriObj.color) $(newCard).find('[data=card_type_' + app.uriObj.type + ']').css('background-color',app.uriObj.color)
     if (card.args) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions))
     // if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions))
     if (card.delay && card.delay.number !== '0') $(newCard).find('[data=card_delay]').html('<i>delay</i>: ' + card.delay.number + (card.delay.multiplier === '60' ? ' minute' : ' second') + (card.delay.number !== '1' ? 's' : ''))
@@ -350,14 +374,14 @@
     var output = ''
     Object.keys(card.args).forEach(function (argument) {
       if (Object.prototype.toString.call(definitions.args) === '[object Object]') definitions.args = [definitions.args]
-      output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args.filter(item => item.name === argument)[0], card.args[argument]) + '<br>'
+      output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args ? definitions.args.filter(item => item.name === argument)[0] : undefined, card.args[argument]) + '<br>'
     })
     output = output.replace(/\[\[/g, '<code>').replace(/]\]/g, '</code>')
     return output
   }
 
   function formatArgValue (argDef, value) {
-    if (argDef === undefined) argDef = {type: 'text'}  //todo: v2 workaround
+    if (argDef === undefined && typeof value === 'object') argDef = {type: 'object'}  //todo: v2 workaround
     switch (argDef.type) {
       case 'autocomplete':
         return value.name
@@ -367,6 +391,8 @@
         return `<span class="colorbox" style="background-color: ${value}"> </span> (${value})`
       case 'range':
         return value * (argDef.labelMultiplier || 1) + (argDef.title || '')
+      case 'object':
+        return value.name || JSON.stringify(value)
       case 'text':
       case 'number':
       case 'time':
