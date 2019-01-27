@@ -15,9 +15,10 @@
     <div class="panel panel-default">
       <div class="panel-body small">Enable or disable:&nbsp;
         <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="appsManager" checked>app manager</label> -->
-        <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="apps" checked>apps</label> -->
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="apps" checked>apps</label>
         <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="deviceManager" checked>device manager</label> -->
-        <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="devices" checked>devices</label> -->
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="devices" checked>devices</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="devkit" checked>devkit</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="flow" checked>flow</label>
         <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="geolocation" checked>geolocation</label> -->
         <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="insights" checked>insights</label> -->
@@ -65,6 +66,7 @@
       apps: $('#apps').prop('checked'),
       deviceManager: $('#deviceManager').prop('checked'),
       devices: $('#devices').prop('checked'),
+      devkit: $('#devkit').prop('checked'),
       flow: $('#flow').prop('checked'),
       geolocation: $('#geolocation').prop('checked'),
       insights: $('#insights').prop('checked'),
@@ -96,7 +98,7 @@
     if (optionalStyle) html += ' ' + optionalStyle
     html += '"><td class="datetime small text-nowrap">' + new Date().toISOString() + '</td>'
     html += '<td class="event small">' + event.capitalizeFirstLetter() + '</td>'
-    html += '<td class="data small text-muted">' + (!data ? '' : JSON.stringify(data)) + '</td></tr>'
+    html += '<td class="data small text-muted">' + (typeof data === 'string' ? data : JSON.stringify(data)) + '</td></tr>'
     $('table#logs tbody tr:first').before(html)
     $('#logs').find('tr:gt(1000)').remove()
     if (setting[category]) {
@@ -174,7 +176,6 @@
     })
   }
 
-
   var HomeySocket
   function connectRealtimeApi (callback) {
     console.log('Connecting to Homey realtime manager...')
@@ -186,17 +187,35 @@
       }, function (error, n) {
         if (error) return console.error(error)
         HomeySocket = socket.io.socket(n.namespace)
+        HomeySocket.onevent = function (packet) { //Override incoming socket events
+          var args = packet.data || []
+          console.log('***', packet.data[0], packet.data[1], packet)
+          if (packet.data[2].chunk) {
+            packet.data[2] = String.fromCharCode.apply(null, new Uint8Array(packet.data[2].chunk))
+          }
+          addLogEntry(packet.data[0].split(':')[2] + ': ' + packet.data[1], packet.data[2], packet.data[0].split(':')[2])
+          // if (category === 'appsManager' && packet.data[0] === 'ready') {
+            // addLogEntry('Start app listener for app', packet.data[1], 'apps')
+          // }
+        }
+
         HomeySocket.once("connect", function () {
           socket.close()
-          HomeySocket.emit("subscribe", "homey:manager:flow", function() {
-            console.log('...Homey realtime flow manager connected')
-          })
-          HomeySocket.emit("subscribe", "homey:manager:zigbee", function() {
-            console.log('...Homey realtime zigbee manager connected')
-          })
+          HomeySocket.emit("subscribe", "homey:manager:apps")
+          HomeySocket.emit("subscribe", "homey:manager:devices")
+          HomeySocket.emit("subscribe", "homey:manager:devkit")
+          HomeySocket.emit("subscribe", "homey:manager:flow")
+          HomeySocket.emit("subscribe", "homey:app:com.tesla.2")
+          HomeySocket.emit("subscribe", "homey:manager:zigbee")
+          HomeySocket.emit("subscribe", "homey:manager:zwave")
+        })
+        HomeySocket.on('homey:manager:apps', function (event, data) {
+          addLogEntry('apps' + ': ' + event, data, 'apps')
+        })
+        HomeySocket.on('homey:manager:devices', function (event, data) {
+          addLogEntry('devices' + ': ' + event, data, 'devices')
         })
         HomeySocket.on('homey:manager:flow', function (event, data) {
-          // handler
           addLogEntry('flow' + ': ' + event, data, 'flow')
         })
         HomeySocket.on('homey:manager:zwave', function (event, data) {
