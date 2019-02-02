@@ -65,6 +65,18 @@
       width: 13px;
       vertical-align: text-top;
     }
+
+    .label-string {
+      background-color: rgb(117,213,0);
+    }
+
+    .label-number {
+      background-color: rgb(2,170,214);
+    }
+
+    .label-boolean {
+      background-color: rgb(213,103,0);
+    }
   </style>
 </head>
 <body>
@@ -200,6 +212,11 @@
             </select>
           </div>
 
+          <div class="dialog_addFolder">
+            <label for="addName" >Name</label>
+            <input id="addFolder" class="form-control" type="text" value="">
+          </div>
+
           <div class="dialog_test form-group">
             <span class="text-muted" data="Progress:"></span>
             <span class="text-muted" data="test_status">initializing...</span>
@@ -234,6 +251,7 @@
   var folders = []
   var flows = []
   var tokens = []
+  var tags = []
 
   if (setup.ip === '0.0.0.0') alert('Configure your Homey IP in the config.js file...')
   if (setup.bearer_token === 'your token') alert('Configure your Bearer token in the config.js file...')
@@ -265,6 +283,7 @@
 
   function addFlow (flow) {
     // console.log('adding flow ', flow.name, flow)
+    tags = []
     var newFlow = $('.template_flow').clone()
     $(newFlow).find('[data=flow]').attr('data-flow-id', flow.id)
     $(newFlow).find('[data=title]').html(flow.name)
@@ -343,9 +362,10 @@
     if (card.delay && card.delay.number !== '0') $(newCard).find('[data=card_delay]').html('<i>delay</i>: ' + card.delay.number + (card.delay.multiplier === '60' ? ' minute' : ' second') + (card.delay.number !== '1' ? 's' : ''))
     if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: <code>' + (card.droptoken) + '</code>')
     if (definitions.tokens) {
-      var tokens = '<i>tokens</i>: '
+      var tokens = '<i>tokens</i>:<br /> '
       definitions.tokens.forEach(token => {
-        tokens += '<code>' + (token.title) + '</code> '
+        tokens += '<span class="label label-info label-'+token.type+'" data-toggle="tooltip" title="type: ' + token.type + ". example: " + token.example + '">' + (token.title) + '</span> <br /> '
+        tags.push(token.id,'<span class="label label-info label-'+token.type+'" data-toggle="tooltip" title="type: ' + token.type + ". example: " + token.example + '">' + (token.title) + '</span>') 
       })
       $(newCard).find('[data=card_droptoken]').html(tokens)
     }
@@ -365,8 +385,34 @@
     Object.keys(card.args).forEach(function (argument) {
       if (Object.prototype.toString.call(definitions.args) === '[object Object]') definitions.args = [definitions.args]
       output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args ? definitions.args.filter(item => item.name === argument)[0] : undefined, card.args[argument]) + '<br>'
+
+      let b = output.indexOf("[[")
+      if (b != -1 ) {
+        output = formatToken(output)
+      }
     })
-    output = output.replace(/\[\[/g, '<code>').replace(/]\]/g, '</code>')
+    //output = output.replace(/\[\[/g, '<code>').replace(/]\]/g, '</code>')
+    return output
+  }
+
+  function formatToken( output ) {
+    let b = output.indexOf("[[")
+    do { 
+      let e = output.indexOf("]]")
+      console.log("do b: "+ b +" - "+ e)                
+      let tagName = output.substring(b+2,e)
+      console.log(tagName)
+      let tagFound = tags.indexOf(tagName)
+      console.log("result: " + tagFound)
+      console.log("token: " + output.substring(b+2,e))
+      if ( tagFound > -1 ) {
+        output = output.replace("[["+tagName+"]]", " " + tags[tagFound,tagFound+1])
+      } else {
+        output = output.replace("[["+tagName+"]]", "<code>" + tagName + "</code>")
+      }
+      b = output.indexOf("[[")
+    }
+    while (b != -1)
     return output
   }
 
@@ -780,6 +826,64 @@
       ]
     })
   }
+
+  function addFolder () {
+    addFolderDialog(function(newName) {
+      newName = newName.trim()
+      if (newName) {
+        console.log("name:" + newName +":")
+        var saveFolder = {name: newName}
+        console.log(JSON.stringify(saveFolder))
+        var newEpoch = new Date().getTime()
+        console.log(newEpoch)
+        $.ajax({
+          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/folder?_=1548529776729`, 
+          //                                                                 ^ epoch incl. milliseconds
+          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/folder?_=`+ newEpoch, 
+          // http://192.168.1.99/api/manager/flow/folder?_=1548529776729
+          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
+          type: 'PUT',
+          data: JSON.stringify(saveFolder),
+          success: function(data) {
+            location.reload()
+          }
+        })
+      }
+    })  
+  }
+
+  function addFolderDialog ( callback) {
+    console.log("addFolderDialog")
+    var message = $('.dialog_addFolder').clone()
+    /*
+    $(message).find('[id=editName]').attr('value', `${getFlow(flowId).name}`)
+    folders.forEach(folder => {
+      $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
+    })
+    $(message).find('[id=editFolder]').val((getFlow(flowId).folder || false).toString())
+    */
+    BootstrapDialog.show({
+      title: 'Add folder',
+      message: message,
+      buttons: [
+        {
+          label: 'Cancel',
+          action: function (dialogRef) {
+            dialogRef.close()
+            callback(false)
+          }
+        },{
+          label: 'Save',
+          action: function (dialogRef) {
+            var folderName = dialogRef.getModalBody().find('[id=addFolder]').val()
+            dialogRef.close()
+            callback(folderName)
+          }
+        }
+      ]
+    })
+  }
+
 
   function orderArrayByIndexMap (array, indexMap) {
     var result = []
