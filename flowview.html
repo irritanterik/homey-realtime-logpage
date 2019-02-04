@@ -82,7 +82,7 @@
 <body>
   <div id="wrapper" class="toggled">
     <div id="sidebar-wrapper">
-      <h3 style="color: white">&nbsp;&nbsp;Folders</h3>
+      <h3 style="color: white">&nbsp;&nbsp;Folders&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#addFolder" class="btn btn-default" id="addFolder">+</a></h3>
       <div id="folders">
         Showing <span class="label label-info">0</span> flows in <span class="label label-info">0</span> folders</h1>
       </div>
@@ -827,30 +827,28 @@
     })
   }
 
-  function addFolder () {
+  $("#addFolder").click(function (e) {
+  //function addFolder () {
     addFolderDialog(function(newName) {
       newName = newName.trim()
       if (newName) {
-        console.log("name:" + newName +":")
-        var saveFolder = {name: newName}
-        console.log(JSON.stringify(saveFolder))
-        var newEpoch = new Date().getTime()
-        console.log(newEpoch)
+        console.log("name:" + newName)
+        var newFolderName = {name: newName}
+
+        console.log(`${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`)
+        console.log(JSON.stringify(newFolderName))
+
         $.ajax({
-          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/folder?_=1548529776729`, 
-          //                                                                 ^ epoch incl. milliseconds
-          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/folder?_=`+ newEpoch, 
-          // http://192.168.1.99/api/manager/flow/folder?_=1548529776729
-          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
+          url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`, 
           type: 'PUT',
-          data: JSON.stringify(saveFolder),
+          data: JSON.stringify(newFolderName),
           success: function(data) {
             location.reload()
           }
         })
       }
     })  
-  }
+  })
 
   function addFolderDialog ( callback) {
     console.log("addFolderDialog")
