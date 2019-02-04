@@ -82,7 +82,7 @@
 <body>
   <div id="wrapper" class="toggled">
     <div id="sidebar-wrapper">
-      <h3 style="color: white">&nbsp;&nbsp;Folders&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#addFolder" class="btn btn-default" id="addFolder">+</a></h3>
+      <h3 style="color: white">&nbsp;&nbsp;Folders&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#addFolder" class="btn btn-default" id="addFolder"><b>+</b></a></h3>
       <div id="folders">
         Showing <span class="label label-info">0</span> flows in <span class="label label-info">0</span> folders</h1>
       </div>
@@ -837,18 +837,18 @@
       newName = newName.trim()
       if (newName) {
         if ( location === "false" ) {
-        var newFolderName = {name: newName}
+        var newFolderInfo = {name: newName}
       } else {
-          var newFolderName = {name: newName, parent: location}
+          var newFolderInfo = {name: newName, parent: location}
         }
 
         console.log(`${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`)
-        console.log(JSON.stringify(newFolderName))
+        console.log(JSON.stringify(newFolderInfo))
 
         $.ajax({
           url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`, 
           type: 'PUT',
-          data: JSON.stringify(newFolderName),
+          data: JSON.stringify(newFolderInfo),
           success: function(data) {
             location.reload()
           }
