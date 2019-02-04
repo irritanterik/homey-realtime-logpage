@@ -215,6 +215,10 @@
           <div class="dialog_addFolder">
             <label for="addName" >Name</label>
             <input id="addFolder" class="form-control" type="text" value="">
+            <label for="editFolder">Folder</label>
+            <select id="editFolder" class="form-control">
+              <option value="false">Root</option>
+            </select>
           </div>
 
           <div class="dialog_test form-group">
@@ -829,11 +833,14 @@
 
   $("#addFolder").click(function (e) {
   //function addFolder () {
-    addFolderDialog(function(newName) {
+    addFolderDialog(function(newName,location) {
       newName = newName.trim()
       if (newName) {
-        console.log("name:" + newName)
+        if ( location === "false" ) {
         var newFolderName = {name: newName}
+      } else {
+          var newFolderName = {name: newName, parent: location}
+        }
 
         console.log(`${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`)
         console.log(JSON.stringify(newFolderName))
@@ -860,6 +867,9 @@
     })
     $(message).find('[id=editFolder]').val((getFlow(flowId).folder || false).toString())
     */
+    folders.forEach(folder => {
+      $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
+    })
     BootstrapDialog.show({
       title: 'Add folder',
       message: message,
@@ -874,8 +884,9 @@
           label: 'Save',
           action: function (dialogRef) {
             var folderName = dialogRef.getModalBody().find('[id=addFolder]').val()
+            var editFolder = dialogRef.getModalBody().find('[id=editFolder]').val()
             dialogRef.close()
-            callback(folderName)
+            callback(folderName, editFolder)
           }
         }
       ]
