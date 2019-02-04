@@ -261,7 +261,6 @@
   var folders = []
   var flows = []
   var tokens = []
-  var tags = []
 
   if (setup.ip === '0.0.0.0') alert('Configure your Homey IP in the config.js file...')
   if (setup.bearer_token === 'your token') alert('Configure your Bearer token in the config.js file...')
@@ -285,7 +284,7 @@
   function addToken (token) {
     var newToken = $('.template_token').clone()
     $(newToken).find('[data=token_uri]').html(token.uriObj.name)
-    $(newToken).find('[data=token_title]').html(token.title)
+    $(newToken).find('[data=token_title]').html(formatToken(token))
     $(newToken).find('[data=token_type]').html(token.type)
     $(newToken).find('[data=token_value]').html(token.value)
     $('#tokens').append(newToken.html())
@@ -293,7 +292,6 @@
 
   function addFlow (flow) {
     // console.log('adding flow ', flow.name, flow)
-    tags = []
     var newFlow = $('.template_flow').clone()
     $(newFlow).find('[data=flow]').attr('data-flow-id', flow.id)
     $(newFlow).find('[data=title]').html(flow.name)
@@ -345,7 +343,6 @@
   }
 
   function formatCard (flowId, card, type, index) {
-    console.log(flowId)
     if (isEmptyObject(card)) return noCard()
     if (card.broken) return noCard(card.id)
     var newCard = $('.template_card').clone()
@@ -367,19 +364,18 @@
     }
     $(newCard).find('[data=card_type_' + app.uriObj.type + ']').html(app.uriObj.name)
     if (app.uriObj.color) $(newCard).find('[data=card_type_' + app.uriObj.type + ']').css('background-color',app.uriObj.color)
-    if (card.args) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions))
+    if (card.args) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions, flowId))
     // if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions))
-    if (card.delay && card.delay.number !== '0') $(newCard).find('[data=card_delay]').html('<i>delay</i>: ' + card.delay.number + (card.delay.multiplier === '60' ? ' minute' : ' second') + (card.delay.number !== '1' ? 's' : ''))
-    if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: <code>' + (card.droptoken) + '</code>')
+    if (card.delay && card.delay.number !== '0') $(newCard).find('[data=card_delay]').html('<i>delay</i>: ' + card.delay.number + (card.delay.multiplier === 60 ? ' minute' : ' second') + (card.delay.number !== '1' ? 's' : ''))
+    if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: ' + formatToken({title: card.droptoken}, flowId))
     if (definitions.tokens) {
       var tokens = '<i>tokens</i>:<br /> '
       definitions.tokens.forEach(token => {
-        tokens += '<span class="label label-info label-'+token.type+'" data-toggle="tooltip" title="type: ' + token.type + ". example: " + token.example + '">' + (token.title) + '</span> <br /> '
-        tags.push(token.id,'<span class="label label-info label-'+token.type+'" data-toggle="tooltip" title="type: ' + token.type + ". example: " + token.example + '">' + (token.title) + '</span>') 
+        tokens += formatToken(token, flowId)
       })
       $(newCard).find('[data=card_droptoken]').html(tokens)
     }
-    // if (type === 'trigger') $(newCard).find('[data=move_card_btn], [data=test_card_btn]').remove()
+    if (type === 'trigger') $(newCard).find('[data=move_card_btn], [data=test_card_btn]').remove()
     $(newCard).find('[data=test_card_btn]').attr('onClick', `testCard('${flowId}','${type}',${index})`)
     return newCard
   }
@@ -390,40 +386,33 @@
     return result
   }
 
-  function formatArgs (card, definitions) {
+  function formatArgs (card, definitions, flowId) {
     var output = ''
     Object.keys(card.args).forEach(function (argument) {
       if (Object.prototype.toString.call(definitions.args) === '[object Object]') definitions.args = [definitions.args]
       output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args ? definitions.args.filter(item => item.name === argument)[0] : undefined, card.args[argument]) + '<br>'
-
-      let b = output.indexOf("[[")
-      if (b != -1 ) {
-        output = formatToken(output)
-      }
     })
-    //output = output.replace(/\[\[/g, '<code>').replace(/]\]/g, '</code>')
+    output = output.replace(/(?:\[\[)(.*?)(?:\]\])/g, function (tag) {
+      tag = tag.replace(/\[|\]/g, '')
+      var token = {title: tag}
+      return formatToken(token, flowId)
+    })
     return output
   }
 
-  function formatToken( output ) {
-    let b = output.indexOf("[[")
-    do { 
-      let e = output.indexOf("]]")
-      console.log("do b: "+ b +" - "+ e)                
-      let tagName = output.substring(b+2,e)
-      console.log(tagName)
-      let tagFound = tags.indexOf(tagName)
-      console.log("result: " + tagFound)
-      console.log("token: " + output.substring(b+2,e))
-      if ( tagFound > -1 ) {
-        output = output.replace("[["+tagName+"]]", " " + tags[tagFound,tagFound+1])
-      } else {
-        output = output.replace("[["+tagName+"]]", "<code>" + tagName + "</code>")
-      }
-      b = output.indexOf("[[")
+  function formatToken (token, flowId) {
+    // find local token in flow
+    if (token.title.indexOf('|') > 0) {
+      let uri = token.title.split('|')[0]
+      let id = token.title.split('|')[1]
+      token = tokens.filter(x => (x.uri === uri && (x.id === id || x.title === id)))[0] || token
+    } else if (!token.type) {
+      token.type = 'string'
+      let localTriggerCard = getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id)
+      if (localTriggerCard) token = localTriggerCard.tokens.filter(x => x.id === token.title)[0] || token
     }
-    while (b != -1)
-    return output
+    var tooltipexample = token.example ? `, example: ${token.example}` : ''
+    return `<span class="label label-info label-${token.type}" data-toggle="tooltip" title="${token.type}${tooltipexample}">${token.title}</span> `
   }
 
   function formatArgValue (argDef, value) {
@@ -591,10 +580,10 @@
         loadCards(() => {
           console.log('Load flows')
           loadFlows(() => {
-            console.log('Show flows')
-            showFlows(() => {
-              console.log('Load tokens')
-              loadTokens(() => {
+            console.log('Load tokens')
+            loadTokens(() => {
+              console.log('Show flows')
+              showFlows(() => {
                 console.log('Show tokens')
                 showTokens(() => {
                   connectFlowManager(() => {
@@ -847,9 +836,9 @@
         var newEpoch = new Date().getTime()
         console.log(newEpoch)
         $.ajax({
-          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/folder?_=1548529776729`, 
+          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/folder?_=1548529776729`,
           //                                                                 ^ epoch incl. milliseconds
-          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/folder?_=`+ newEpoch, 
+          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/folder?_=`+ newEpoch,
           // http://192.168.1.99/api/manager/flow/folder?_=1548529776729
           // url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
           type: 'PUT',
@@ -859,7 +848,7 @@
           }
         })
       }
-    })  
+    })
   }
 
   function addFolderDialog ( callback) {
@@ -1154,7 +1143,7 @@
 
     var HomeySocket
     function connectFlowManager (callback) {
-      console.log('Connecting to Homey realtime flow manager...')
+      console.log('Connecting to Homey realtime manager...')
       var socket = io.connect(`${setup.protocol}://${setup.ip}`, {transports: ['websocket', 'polling']})
       socket.on('connect', function () {
         socket.emit("handshakeClient", {

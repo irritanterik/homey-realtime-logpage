@@ -20,6 +20,7 @@
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="devices" checked>devices</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="devkit" checked>devkit</label>
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="flow" checked>flow</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="logic" checked>logic</label>
         <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="geolocation" checked>geolocation</label> -->
         <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="insights" checked>insights</label> -->
         <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="ledring" checked>ledring</label> -->
@@ -71,6 +72,7 @@
       geolocation: $('#geolocation').prop('checked'),
       insights: $('#insights').prop('checked'),
       ledring: $('#ledring').prop('checked'),
+      logic: $('#logic').prop('checked'),
       notifications: $('#notifications').prop('checked'),
       presence: $('#presence').prop('checked'),
       speechInput: $('#speechInput').prop('checked'),
@@ -206,6 +208,7 @@
           HomeySocket.emit("subscribe", "homey:manager:devkit")
           HomeySocket.emit("subscribe", "homey:manager:flow")
           HomeySocket.emit("subscribe", "homey:app:com.tesla.2")
+          HomeySocket.emit("subscribe", "homey:manager:logic")
           HomeySocket.emit("subscribe", "homey:manager:zigbee")
           HomeySocket.emit("subscribe", "homey:manager:zwave")
         })
@@ -217,6 +220,9 @@
         })
         HomeySocket.on('homey:manager:flow', function (event, data) {
           addLogEntry('flow' + ': ' + event, data, 'flow')
+        })
+        HomeySocket.on('homey:manager:logic', function (event, data) {
+          addLogEntry('logic' + ': ' + event, data, 'logic')
         })
         HomeySocket.on('homey:manager:zwave', function (event, data) {
           addLogEntry('zwave' + ': ' + event, data, 'zwave')
