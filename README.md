@@ -17,7 +17,7 @@ You could also find your token by sniffing traffic between the Homey app and Hom
 
 ### Flow Viewer (flowview.html)
 View, search, organize, copy, re-order and test your Homey flows.
-![screenshot](images\flowviewer.png)
+![screenshot](images/flowviewer.png)
 
 ### Realtime Logger (index.html)
 Flow events are only logged during test-runs (started with test-button in flow editor).
