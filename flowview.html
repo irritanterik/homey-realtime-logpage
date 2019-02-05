@@ -92,7 +92,7 @@
 <body>
   <div id="wrapper" class="toggled">
     <div id="sidebar-wrapper">
-      <h3 style="color: white">&nbsp;&nbsp;Folders</h3>
+      <h3 style="color: white">&nbsp;&nbsp;Folders&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#addFolder" class="btn btn-default" id="addFolder"><b>+</b></a></h3>
       <div id="folders">
         Showing <span class="label label-info">0</span> flows in <span class="label label-info">0</span> folders</h1>
       </div>
@@ -225,6 +225,10 @@
           <div class="dialog_addFolder">
             <label for="addName" >Name</label>
             <input id="addFolder" class="form-control" type="text" value="">
+            <label for="editFolder">Folder</label>
+            <select id="editFolder" class="form-control">
+              <option value="false">Root</option>
+            </select>
           </div>
 
           <div class="dialog_test form-group">
@@ -826,33 +830,30 @@
     })
   }
 
-  function addFolder () {
-    addFolderDialog(function(newName) {
+  $("#addFolder").click(function (e) {
+  //function addFolder () {
+    addFolderDialog(function(newName,location) {
       newName = newName.trim()
       if (newName) {
-        console.log("name:" + newName +":")
-        var saveFolder = {name: newName}
-        console.log(JSON.stringify(saveFolder))
-        var newEpoch = new Date().getTime()
-        console.log(newEpoch)
+        if ( location === "false" ) {
+        var newFolderInfo = {name: newName}
+      } else {
+          var newFolderInfo = {name: newName, parent: location}
+        }
         $.ajax({
-          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/folder?_=1548529776729`,
-          //                                                                 ^ epoch incl. milliseconds
-          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/folder?_=`+ newEpoch,
-          // http://192.168.1.99/api/manager/flow/folder?_=1548529776729
-          // url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
-          type: 'PUT',
-          data: JSON.stringify(saveFolder),
+          url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`, 
+          type: 'POST',
+          data: JSON.stringify(newFolderInfo),
           success: function(data) {
-            location.reload()
+            //location.reload()
+            alert("Please reload the page")
           }
         })
       }
-    })
-  }
+    })  
+  })
 
   function addFolderDialog ( callback) {
-    console.log("addFolderDialog")
     var message = $('.dialog_addFolder').clone()
     /*
     $(message).find('[id=editName]').attr('value', `${getFlow(flowId).name}`)
@@ -861,6 +862,9 @@
     })
     $(message).find('[id=editFolder]').val((getFlow(flowId).folder || false).toString())
     */
+    folders.forEach(folder => {
+      $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
+    })
     BootstrapDialog.show({
       title: 'Add folder',
       message: message,
@@ -875,8 +879,9 @@
           label: 'Save',
           action: function (dialogRef) {
             var folderName = dialogRef.getModalBody().find('[id=addFolder]').val()
+            var editFolder = dialogRef.getModalBody().find('[id=editFolder]').val()
             dialogRef.close()
-            callback(folderName)
+            callback(folderName, editFolder)
           }
         }
       ]
