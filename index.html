@@ -207,28 +207,9 @@
           HomeySocket.emit("subscribe", "homey:manager:devices")
           HomeySocket.emit("subscribe", "homey:manager:devkit")
           HomeySocket.emit("subscribe", "homey:manager:flow")
-          HomeySocket.emit("subscribe", "homey:app:com.tesla.2")
           HomeySocket.emit("subscribe", "homey:manager:logic")
           HomeySocket.emit("subscribe", "homey:manager:zigbee")
           HomeySocket.emit("subscribe", "homey:manager:zwave")
-        })
-        HomeySocket.on('homey:manager:apps', function (event, data) {
-          addLogEntry('apps' + ': ' + event, data, 'apps')
-        })
-        HomeySocket.on('homey:manager:devices', function (event, data) {
-          addLogEntry('devices' + ': ' + event, data, 'devices')
-        })
-        HomeySocket.on('homey:manager:flow', function (event, data) {
-          addLogEntry('flow' + ': ' + event, data, 'flow')
-        })
-        HomeySocket.on('homey:manager:logic', function (event, data) {
-          addLogEntry('logic' + ': ' + event, data, 'logic')
-        })
-        HomeySocket.on('homey:manager:zwave', function (event, data) {
-          addLogEntry('zwave' + ': ' + event, data, 'zwave')
-        })
-        HomeySocket.on('homey:manager:zigbee', function (event, data) {
-          addLogEntry('zigbee' + ': ' + event, data, 'zigbee')
         })
         HomeySocket.once("disconnect", function (error) {
           console.log("HomeySocket disconnected", error)
@@ -278,20 +259,16 @@
   function listenToAll () {
     optionsChanged()
     connectRealtimeApi()
-    // listenOn('/realtime/manager/apps/', 'appsManager')
     // listenApps()
     // listenDevices()
     // listenManagerDevices()
-    // listenOn('homey:manager:flow', 'flow')
     // listenOn('/realtime/manager/geolocation/', 'geolocation')
     // listenOn('/realtime/manager/insights/', 'insights')
     // listenOn('/realtime/manager/ledring/', 'ledring')
     // listenOn('/realtime/manager/speech-output/', 'speechOutput')
     // listenOn('/realtime/manager/speech-input/', 'speechInput')
-    // listenOn('homey:manager:zwave', 'zwave')
     // listenOn('/realtime/manager/notifications/', 'notifications')
     // listenOn('/realtime/manager/presence/', 'presence')
-    // listenOn('homey:manager:zigbee', 'zigbee')
   }
 
   // findSocket('/') // working, but no events
