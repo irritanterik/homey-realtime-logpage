@@ -831,26 +831,19 @@
   }
 
   $("#addFolder").click(function (e) {
-  //function addFolder () {
-    addFolderDialog(function(newName,location) {
+    addFolderDialog(function (newName, parent) {
       newName = newName.trim()
-      if (newName) {
-        if ( location === "false" ) {
-        var newFolderInfo = {name: newName}
-      } else {
-          var newFolderInfo = {name: newName, parent: location}
+      var newFolderInfo = {name: newName.trim()}
+      if (parent !== "false") newFolderInfo.parent = parent
+      $.ajax({
+        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`,
+        type: 'POST',
+        data: JSON.stringify(newFolderInfo),
+        success: function(data) {
+          location.reload()
         }
-        $.ajax({
-          url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`, 
-          type: 'POST',
-          data: JSON.stringify(newFolderInfo),
-          success: function(data) {
-            //location.reload()
-            alert("Please reload the page")
-          }
-        })
-      }
-    })  
+      })
+    })
   })
 
   function addFolderDialog ( callback) {
