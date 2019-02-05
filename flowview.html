@@ -232,7 +232,7 @@
             <input id="addFolder" class="form-control" type="text" value="">
             <label for="editFolder">In folder</label>
             <select id="editFolder" class="form-control">
-              <option value="false">Top level</option>
+              <option value="false">None</option>
             </select>
           </div>
 
@@ -241,13 +241,13 @@
             <select id="editFolder" class="form-control">
               </select>
             </div>
-  
+
             <div class="dialog_editFolder">
               <label for="editName" >Name</label>
               <input id="editName" class="form-control" type="text" value="">
               <label for="editFolder">In folder</label>
               <select id="editFolder" class="form-control">
-                <option value="false">Top level</option>
+                <option value="false">None</option>
             </select>
           </div>
 
@@ -576,7 +576,8 @@
     folders.sort((a, b) => (a.sorting > b.sorting ? 1 : -1))
   }
 
-  function showFlows (callback) {
+  function showFlows () {
+    console.log('Show flows')
     flows.forEach(flow => {
       flow.order = formatOrderNumber(flow.order)
       if (flow.folder) flow.order = folderOrder(flow.folder) + flow.order
@@ -585,44 +586,18 @@
     flows.forEach(flow => {
       addFlow(flow)
     })
-    callback()
   }
 
-  function showTokens (callback) {
+  function showTokens () {
+    console.log('Show tokens')
     tokens.forEach(token => {
       addToken(token)
     })
-    callback()
   }
 
-  $.getScript(`${setup.protocol}://${setup.ip}/socket.io/socket.io.js`, () => {
-    console.log('Load devices')
-    loadDevices(() => {
-      console.log('Load folders')
-      loadFolders(() => {
-        console.log('Load cards')
-        loadCards(() => {
-          console.log('Load flows')
-          loadFlows(() => {
-            console.log('Load tokens')
-            loadTokens(() => {
-              console.log('Show flows')
-              showFlows(() => {
-                console.log('Show tokens')
-                showTokens(() => {
-                  connectFlowManager(() => {
-                    setTimeout(ready, 1000)
-                  })
-                })
-              })
-            })
-          })
-        })
-      })
-    })
-  })
-  function ready() {
-    $('#flow_count').html(flows.length)
+  function showFolders () {
+    console.log('Show folders')
+    $('#folders').treeview('remove')
     $('#folders').treeview({
       data: getTree(),
       expandIcon: 'glyphicon glyphicon-chevron-right',
@@ -640,6 +615,33 @@
         setTimeout(setFoldersDroppable, 500)
       }
     })
+  }
+
+  $.getScript(`${setup.protocol}://${setup.ip}/socket.io/socket.io.js`, () => {
+    console.log('Load devices')
+    loadDevices(() => {
+      console.log('Load folders')
+      loadFolders(() => {
+        console.log('Load cards')
+        loadCards(() => {
+          console.log('Load flows')
+          loadFlows(() => {
+            console.log('Load tokens')
+            loadTokens(() => {
+              showFlows()
+              showTokens()
+              showFolders()
+              connectFlowManager(() => {
+                setTimeout(ready, 500)
+              })
+            })
+          })
+        })
+      })
+    })
+  })
+  function ready() {
+    $('#flow_count').html(flows.length)
     $("#wrapper").toggleClass("toggled")
     setTooltips()
     setFlowsDraggable()
@@ -683,6 +685,19 @@
         type: 'DELETE',
         success: function(data) {
           $(`[data-flow-id=${flowId}]`).slideUp(1000)
+        }
+      })
+    })
+  }
+
+  function deleteFlowFolder (folderId) {
+    deleteFolderDialog(folderId, function(doDelete) {
+      if (!doDelete) return
+      $.ajax({
+        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`,
+        type: 'DELETE',
+        success: function(data) {
+          location.reload()
         }
       })
     })
@@ -797,6 +812,28 @@
     })
   }
 
+  function deleteFolderDialog (folderId, callback) {
+    BootstrapDialog.show({
+      title: 'Delete folder',
+      message: 'Are you sure you want to delete folder ' + getFolder(folderId).name + '?',
+      buttons: [
+        {
+          label: 'Cancel',
+          action: function (dialogRef) {
+            dialogRef.close()
+            callback(false)
+          }
+        },{
+          label: 'Delete',
+          action: function (dialogRef) {
+            dialogRef.close()
+            callback(true)
+          }
+        }
+      ]
+    })
+  }
+
   function editFlowDialog (flowId, callback) {
     var message = $('.dialog_edit').clone()
     $(message).find('[id=editName]').attr('value', `${getFlow(flowId).name}`)
@@ -860,31 +897,29 @@
         type: 'POST',
         data: JSON.stringify(newFolderInfo),
         success: function(data) {
-          location.reload()
+          loadFolders(showFolders)
         }
       })
     })
   }
 
   function editFolder () {
-    selectFolderDialog(function(folderId) {
-      editFolderDialog(folderId,function(newName,location) {
+    selectFolderDialog(function (folderId) {
+      if (!folderId) return
+      editFolderDialog(folderId, function (newName, parent) {
         if (newName) {
-          if ( location === "false" ) {
-            var newFolderInfo = {name: newName, parent: null}
-          } else {
-            var newFolderInfo = {name: newName, parent: location}
+          newFolderInfo = {
+            name: newName.trim(),
+            parent: parent === "false" ? null : parent
           }
           $.ajax({
-            url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`, 
+            url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`,
             type: 'PUT',
             data: JSON.stringify(newFolderInfo),
-            success: function(data) {
-              //location.reload()
-              alert("Please reload the page")
+            success: function (data) {
+              loadFolders(showFolders)
             }
           })
-
         }
       })
     })
@@ -953,6 +988,7 @@
         $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
       }
     })
+    $(message).find('[id=editFolder]').val((getFolder(folderId).parent || false).toString())
     BootstrapDialog.show({
       title: 'Change the folder name or choose another parent folder',
       message: message,
