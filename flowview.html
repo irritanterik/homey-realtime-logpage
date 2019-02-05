@@ -841,10 +841,6 @@
       } else {
           var newFolderInfo = {name: newName, parent: location}
         }
-
-        console.log(`${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`)
-        console.log(JSON.stringify(newFolderInfo))
-
         $.ajax({
           url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`, 
           type: 'POST',
@@ -859,7 +855,6 @@
   })
 
   function addFolderDialog ( callback) {
-    console.log("addFolderDialog")
     var message = $('.dialog_addFolder').clone()
     /*
     $(message).find('[id=editName]').attr('value', `${getFlow(flowId).name}`)
