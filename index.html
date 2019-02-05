@@ -225,58 +225,14 @@
     })
   }
 
-
-  function listenOn (namespace, category) {
-    var socket = io.connect(setup.protocol + '://' + setup.ip + namespace, {query: 'token=' + setup.bearer_token, transports: ['websocket', 'polling']})
-    socket.onevent = function (packet) { //Override incoming socket events
-      var args = packet.data || []
-      console.log('***', namespace, packet.data[0], packet.data[1], packet)
-      addLogEntry(category + ': ' + packet.data[0], packet.data[1], category)
-      // if (category === 'appsManager' && packet.data[0] === 'ready') {
-        // addLogEntry('Start app listener for app', packet.data[1], 'apps')
-      // }
-    }
-  }
-
-  var newSocket
-  function findSocket (namespace) {
-    // try this to validate new namespaces
-    newSocket = io.connect(setup.protocol + '://' + setup.ip + namespace , {query: 'token=' + setup.bearer_token, transports: ['websocket', 'polling']})
-    var _onevent = newSocket.onevent
-    var _emit = newSocket.emit
-    newSocket.onevent = function (packet) { //Override incoming socket events
-      var args = packet.data || []
-      console.log('***', 'event', args, packet)
-      _onevent.call(newSocket, packet)
-      alert('event on findSocket ' + namespace + '!')
-    }
-    newSocket.emit = function () { //Override outgoing
-      console.log('***', 'emit', arguments)
-      _emit.apply(newSocket, arguments)
-    }
-  }
-
   function listenToAll () {
     optionsChanged()
     connectRealtimeApi()
     // listenApps()
     // listenDevices()
     // listenManagerDevices()
-    // listenOn('/realtime/manager/geolocation/', 'geolocation')
-    // listenOn('/realtime/manager/insights/', 'insights')
-    // listenOn('/realtime/manager/ledring/', 'ledring')
-    // listenOn('/realtime/manager/speech-output/', 'speechOutput')
-    // listenOn('/realtime/manager/speech-input/', 'speechInput')
-    // listenOn('/realtime/manager/notifications/', 'notifications')
-    // listenOn('/realtime/manager/presence/', 'presence')
   }
 
-  // findSocket('/') // working, but no events
-  // findSocket('/realtime/manager/devkit/') // ignored
-  // findSocket('/realtime/manager/settings/') // nothing here
-  // findSocket('/realtime/manager/speaker/') // nothing here
-  // findSocket('/realtime/manager/system/') // nothing here
-  // findSocket('/realtime/manager/drivers/') // nothing here
   var socketlib = setup.protocol + '://' + setup.ip + '/socket.io/socket.io.js'
   $.getScript(socketlib, function () {
     listenToAll()
