@@ -847,10 +847,11 @@
 
         $.ajax({
           url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`, 
-          type: 'PUT',
+          type: 'POST',
           data: JSON.stringify(newFolderInfo),
           success: function(data) {
-            location.reload()
+            //location.reload()
+            alert("Please reload the page")
           }
         })
       }
