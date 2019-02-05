@@ -82,7 +82,12 @@
 <body>
   <div id="wrapper" class="toggled">
     <div id="sidebar-wrapper">
-      <h3 style="color: white">&nbsp;&nbsp;Folders&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#addFolder" class="btn btn-default" id="addFolder"><b>+</b></a></h3>
+        <br />
+        <h3 style="color: white">&nbsp;Folders&nbsp;&nbsp;&nbsp;
+          <button class="btn btn-default" data="add_btn" data-toggle="tooltip" title="" onclick="addFolder()" data-original-title="Add folder"><i class="fa fa-plus"></i></button>
+          <button class="btn btn-default" data="edit_btn" data-toggle="tooltip" title="" onclick="editFolder()" data-original-title="Edit folder"><i class="fa fa-pencil"></i></button>
+          <!--button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="" onclick="deleteFolder()" data-original-title="Delete folder"><i class="fa fa-remove"></i></button-->
+      </h3>
       <div id="folders">
         Showing <span class="label label-info">0</span> flows in <span class="label label-info">0</span> folders</h1>
       </div>
@@ -215,9 +220,24 @@
           <div class="dialog_addFolder">
             <label for="addName" >Name</label>
             <input id="addFolder" class="form-control" type="text" value="">
+            <label for="editFolder">In folder</label>
+            <select id="editFolder" class="form-control">
+              <option value="false">Top level</option>
+            </select>
+          </div>
+
+          <div class="dialog_selectFolder">
             <label for="editFolder">Folder</label>
             <select id="editFolder" class="form-control">
-              <option value="false">Root</option>
+              </select>
+            </div>
+  
+            <div class="dialog_editFolder">
+              <label for="editName" >Name</label>
+              <input id="editName" class="form-control" type="text" value="">
+              <label for="editFolder">In folder</label>
+              <select id="editFolder" class="form-control">
+                <option value="false">Top level</option>
             </select>
           </div>
 
@@ -245,7 +265,7 @@
     </div>
     <footer class="footer">
       <div class="container">
-        <p class="text-muted">flows: <span id=flow_count>loading...</span></p>
+        <p class="text-muted" style="color:white">flows: <span id=flow_count>loading...</span></p>
       </div>
     </footer>
   </div>
@@ -831,8 +851,7 @@
     })
   }
 
-  $("#addFolder").click(function (e) {
-  //function addFolder () {
+  function addFolder () {
     addFolderDialog(function(newName,location) {
       newName = newName.trim()
       if (newName) {
@@ -852,17 +871,34 @@
         })
       }
     })  
-  })
+  }
 
-  function addFolderDialog ( callback) {
-    var message = $('.dialog_addFolder').clone()
-    /*
-    $(message).find('[id=editName]').attr('value', `${getFlow(flowId).name}`)
-    folders.forEach(folder => {
-      $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
+  function editFolder () {
+    selectFolderDialog(function(folderId) {
+      editFolderDialog(folderId,function(newName,location) {
+        if (newName) {
+          if ( location === "false" ) {
+            var newFolderInfo = {name: newName, parent: null}
+          } else {
+            var newFolderInfo = {name: newName, parent: location}
+          }
+          $.ajax({
+            url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`, 
+            type: 'PUT',
+            data: JSON.stringify(newFolderInfo),
+            success: function(data) {
+              //location.reload()
+              alert("Please reload the page")
+            }
+          })
+
+        }
+      })
     })
-    $(message).find('[id=editFolder]').val((getFlow(flowId).folder || false).toString())
-    */
+  }
+
+  function addFolderDialog ( callback ) {
+    var message = $('.dialog_addFolder').clone()
     folders.forEach(folder => {
       $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
     })
@@ -889,6 +925,63 @@
     })
   }
 
+  function selectFolderDialog ( callback ) {
+    var message = $('.dialog_selectFolder').clone()
+    folders.forEach(folder => {
+      $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
+    })
+    BootstrapDialog.show({
+      title: 'Select folder to edit',
+      message: message,
+      buttons: [
+        {
+          label: 'Cancel',
+          action: function (dialogRef) {
+            dialogRef.close()
+            callback(false)
+          }
+        },{
+          label: 'Next',
+          action: function (dialogRef) {
+            var editFolder = dialogRef.getModalBody().find('[id=editFolder]').val()
+            dialogRef.close()
+            callback(editFolder)
+          }
+        }
+      ]
+    })
+  }
+
+  function editFolderDialog ( folderId, callback ) {
+    var message = $('.dialog_editFolder').clone()
+    $(message).find('[id=editName]').attr('value', `${getFolder(folderId).name}`)
+    folders.forEach(folder => {
+      if ( folder.id != folderId ) {
+        $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
+      }
+    })
+    BootstrapDialog.show({
+      title: 'Change the folder name or choose another parent folder',
+      message: message,
+      buttons: [
+        {
+          label: 'Cancel',
+          action: function (dialogRef) {
+            dialogRef.close()
+            callback(false)
+          }
+        },{
+          label: 'Save',
+          action: function (dialogRef) {
+            var folderName = dialogRef.getModalBody().find('[id=editName]').val()
+            var editFolder = dialogRef.getModalBody().find('[id=editFolder]').val()
+            dialogRef.close()
+            callback(folderName, editFolder)
+          }
+        }
+      ]
+    })
+  }
 
   function orderArrayByIndexMap (array, indexMap) {
     var result = []
