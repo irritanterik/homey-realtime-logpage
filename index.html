@@ -10,23 +10,26 @@
 </head>
 <body>
   <div class=container-fluid>
-    <h2>Realtime Homey logger</h2>
+    <h2>Realtime Homey logger V2 (in progress)</h2>
     <p>Fired socket.io events on <code>realtime/app/app-id</code>, <code>realtime/manager/devices</code>, <code>realtime/device/device-id</code>, <code>realtime/manager/flow</code> etc, etc are shown here as they occur.</p>
     <div class="panel panel-default">
       <div class="panel-body small">Enable or disable:&nbsp;
-        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="appsManager" checked>app manager</label>
+        <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="appsManager" checked>app manager</label> -->
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="apps" checked>apps</label>
-        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="deviceManager" checked>device manager</label>
+        <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="deviceManager" checked>device manager</label> -->
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="devices" checked>devices</label>
-        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="flow" checked>flow testing</label>
-        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="geolocation" checked>geolocation</label>
-        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="insights" checked>insights</label>
-        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="ledring" checked>ledring</label>
-        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="notifications" checked>notifications</label>
-        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="presence" checked>presence</label>
-        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="speechInput" checked>speech-input</label>
-        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="speechOutput" checked>speech-output</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="devkit" checked>devkit</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="flow" checked>flow</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="logic" checked>logic</label>
+        <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="geolocation" checked>geolocation</label> -->
+        <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="insights" checked>insights</label> -->
+        <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="ledring" checked>ledring</label> -->
+        <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="notifications" checked>notifications</label> -->
+        <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="presence" checked>presence</label> -->
+        <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="speechInput" checked>speech-input</label> -->
+        <!-- <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="speechOutput" checked>speech-output</label> -->
         <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="zwave" checked>zwave</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="zigbee" checked>zigbee</label>
       </div>
     </div>
     <table id="logs" class="table table-condensed" width=100%>
@@ -49,9 +52,14 @@
   var apps = []
   var setting = {}
 
-  if (setup.ip === '0.0.0.0') alert('Configure your Homey IP in config.js...')
-  if (setup.bearer_token === 'your token') alert('Configure your Bearer token in config.js...')
-  $.ajaxSetup({headers: {Authorization: 'Bearer ' + setup.bearer_token}})
+  if (setup.ip === '0.0.0.0') alert('Configure your Homey IP in the config.js file...')
+  if (setup.bearer_token === 'your token') alert('Configure your Bearer token in the config.js file...')
+  if (setup.homeyId === 'your Homey ID') alert('Configure your Homey ID in the config.js file...')
+
+  $.ajaxSetup({
+    contentType : 'application/json',
+    headers: {Authorization: 'Bearer ' + setup.bearer_token}
+  })
 
   function optionsChanged () {
     setting = {
@@ -59,15 +67,18 @@
       apps: $('#apps').prop('checked'),
       deviceManager: $('#deviceManager').prop('checked'),
       devices: $('#devices').prop('checked'),
+      devkit: $('#devkit').prop('checked'),
       flow: $('#flow').prop('checked'),
       geolocation: $('#geolocation').prop('checked'),
       insights: $('#insights').prop('checked'),
       ledring: $('#ledring').prop('checked'),
+      logic: $('#logic').prop('checked'),
       notifications: $('#notifications').prop('checked'),
       presence: $('#presence').prop('checked'),
       speechInput: $('#speechInput').prop('checked'),
       speechOutput: $('#speechOutput').prop('checked'),
-      zwave: $('#zwave').prop('checked')
+      zwave: $('#zwave').prop('checked'),
+      zigbee: $('#zigbee').prop('checked')
     }
 
     $.each(setting, function (category) {
@@ -89,7 +100,7 @@
     if (optionalStyle) html += ' ' + optionalStyle
     html += '"><td class="datetime small text-nowrap">' + new Date().toISOString() + '</td>'
     html += '<td class="event small">' + event.capitalizeFirstLetter() + '</td>'
-    html += '<td class="data small text-muted">' + (!data ? '' : JSON.stringify(data)) + '</td></tr>'
+    html += '<td class="data small text-muted">' + (typeof data === 'string' ? data : JSON.stringify(data)) + '</td></tr>'
     $('table#logs tbody tr:first').before(html)
     $('#logs').find('tr:gt(1000)').remove()
     if (setting[category]) {
@@ -167,6 +178,73 @@
     })
   }
 
+  var HomeySocket
+  function connectRealtimeApi (callback) {
+    console.log('Connecting to Homey realtime manager...')
+    var socket = io.connect(`${setup.protocol}://${setup.ip}`, {transports: ['websocket', 'polling']})
+    socket.on('connect', function () {
+      socket.emit("handshakeClient", {
+        homeyId: setup.homeyId,
+        token: setup.bearer_token
+      }, function (error, n) {
+        if (error) return console.error(error)
+        HomeySocket = socket.io.socket(n.namespace)
+        HomeySocket.onevent = function (packet) { //Override incoming socket events
+          var args = packet.data || []
+          console.log('***', packet.data[0], packet.data[1], packet)
+          if (packet.data[2].chunk) {
+            packet.data[2] = String.fromCharCode.apply(null, new Uint8Array(packet.data[2].chunk))
+          }
+          addLogEntry(packet.data[0].split(':')[2] + ': ' + packet.data[1], packet.data[2], packet.data[0].split(':')[2])
+          // if (category === 'appsManager' && packet.data[0] === 'ready') {
+            // addLogEntry('Start app listener for app', packet.data[1], 'apps')
+          // }
+        }
+
+        HomeySocket.once("connect", function () {
+          socket.close()
+          HomeySocket.emit("subscribe", "homey:manager:apps")
+          HomeySocket.emit("subscribe", "homey:manager:devices")
+          HomeySocket.emit("subscribe", "homey:manager:devkit")
+          HomeySocket.emit("subscribe", "homey:manager:flow")
+          HomeySocket.emit("subscribe", "homey:app:com.tesla.2")
+          HomeySocket.emit("subscribe", "homey:manager:logic")
+          HomeySocket.emit("subscribe", "homey:manager:zigbee")
+          HomeySocket.emit("subscribe", "homey:manager:zwave")
+        })
+        HomeySocket.on('homey:manager:apps', function (event, data) {
+          addLogEntry('apps' + ': ' + event, data, 'apps')
+        })
+        HomeySocket.on('homey:manager:devices', function (event, data) {
+          addLogEntry('devices' + ': ' + event, data, 'devices')
+        })
+        HomeySocket.on('homey:manager:flow', function (event, data) {
+          addLogEntry('flow' + ': ' + event, data, 'flow')
+        })
+        HomeySocket.on('homey:manager:logic', function (event, data) {
+          addLogEntry('logic' + ': ' + event, data, 'logic')
+        })
+        HomeySocket.on('homey:manager:zwave', function (event, data) {
+          addLogEntry('zwave' + ': ' + event, data, 'zwave')
+        })
+        HomeySocket.on('homey:manager:zigbee', function (event, data) {
+          addLogEntry('zigbee' + ': ' + event, data, 'zigbee')
+        })
+        HomeySocket.once("disconnect", function (error) {
+          console.log("HomeySocket disconnected", error)
+        })
+        HomeySocket.once("error", function (error) {
+          console.error("HomeySocket error", error)
+        })
+        HomeySocket.open()
+      })
+    })
+    socket.on('error',function (error) {
+      console.log(socket)
+    })
+  }
+
+
   function listenOn (namespace, category) {
     var socket = io.connect(setup.protocol + '://' + setup.ip + namespace, {query: 'token=' + setup.bearer_token, transports: ['websocket', 'polling']})
     socket.onevent = function (packet) { //Override incoming socket events
@@ -199,19 +277,21 @@
 
   function listenToAll () {
     optionsChanged()
-    listenOn('/realtime/manager/apps/', 'appsManager')
-    listenApps()
-    listenDevices()
-    listenManagerDevices()
-    listenOn('/realtime/manager/flow/', 'flow')
-    listenOn('/realtime/manager/geolocation/', 'geolocation')
-    listenOn('/realtime/manager/insights/', 'insights')
-    listenOn('/realtime/manager/ledring/', 'ledring')
-    listenOn('/realtime/manager/speech-output/', 'speechOutput')
-    listenOn('/realtime/manager/speech-input/', 'speechInput')
-    listenOn('/realtime/manager/zwave/', 'zwave')
-    listenOn('/realtime/manager/notifications/', 'notifications')
-    listenOn('/realtime/manager/presence/', 'presence')
+    connectRealtimeApi()
+    // listenOn('/realtime/manager/apps/', 'appsManager')
+    // listenApps()
+    // listenDevices()
+    // listenManagerDevices()
+    // listenOn('homey:manager:flow', 'flow')
+    // listenOn('/realtime/manager/geolocation/', 'geolocation')
+    // listenOn('/realtime/manager/insights/', 'insights')
+    // listenOn('/realtime/manager/ledring/', 'ledring')
+    // listenOn('/realtime/manager/speech-output/', 'speechOutput')
+    // listenOn('/realtime/manager/speech-input/', 'speechInput')
+    // listenOn('homey:manager:zwave', 'zwave')
+    // listenOn('/realtime/manager/notifications/', 'notifications')
+    // listenOn('/realtime/manager/presence/', 'presence')
+    // listenOn('homey:manager:zigbee', 'zigbee')
   }
 
   // findSocket('/') // working, but no events

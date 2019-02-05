@@ -23,16 +23,26 @@
       color: white;
     }
 
+    .panel-heading {
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+    }
+
     .panel {
-      background-color: light-gray;
+      background-color: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 12px;
     }
 
     .well {
       margin-bottom: 5px;
+      background-color: white;
+      border: none;
+      border-radius: 6px;
     }
     .col-sm-5, .col-sm-2 {
-      padding-right: 5px;
-      padding-left: 5px;
+      padding-right: 10px;
+      padding-left: 10px;
     }
 
     .node-folders {
@@ -142,32 +152,32 @@
               <div class="panel-body">
                 <div class="row">
                   <div class="col-sm-12 small text-center">
-                    <div class="text-muted">Triggered <span data="triggercount"></span> times.</div>
+                    <div>Triggered <span data="triggercount"></span> times.</div>
                   </div>
                 </div>
                 <div class="row">
                   <div class="col-sm-2 small">
                     <span data="cards_trigger">
-                      <div class="text-muted">When</div>
+                      <div>When</div>
                     </span>
                   </div>
                   <div class="col-sm-5 small" data="cards_condition">
                     <span data="cards_condition_group1">
-                      <div class="text-muted">And</div>
+                      <div>And</div>
                     </span>
                     <span data="cards_condition_group2">
-                      <div class="text-muted">Or</div>
+                      <div>Or</div>
                     </span>
                     <span data="cards_condition_group3">
-                      <div class="text-muted">Or</div>
+                      <div>Or</div>
                     </span>
                   </div>
                   <div class="col-sm-5 small" data="cards_action">
                     <span data="cards_action_then">
-                      <div class="text-muted">Then</div>
+                      <div>Then</div>
                     </span>
                     <span data="cards_action_else">
-                      <div class="text-muted">Else</div>
+                      <div>Else</div>
                     </span>
                   </div>
                 </div>
@@ -245,7 +255,7 @@
     </div>
     <footer class="footer">
       <div class="container">
-        <p class="text-muted">flows: <span id=flow_count>loading...</span></p>
+        <p>flows: <span id=flow_count>loading...</span></p>
       </div>
     </footer>
   </div>
@@ -255,7 +265,6 @@
   var folders = []
   var flows = []
   var tokens = []
-  var tags = []
 
   if (setup.ip === '0.0.0.0') alert('Configure your Homey IP in the config.js file...')
   if (setup.bearer_token === 'your token') alert('Configure your Bearer token in the config.js file...')
@@ -279,7 +288,7 @@
   function addToken (token) {
     var newToken = $('.template_token').clone()
     $(newToken).find('[data=token_uri]').html(token.uriObj.name)
-    $(newToken).find('[data=token_title]').html(token.title)
+    $(newToken).find('[data=token_title]').html(formatToken(token))
     $(newToken).find('[data=token_type]').html(token.type)
     $(newToken).find('[data=token_value]').html(token.value)
     $('#tokens').append(newToken.html())
@@ -287,7 +296,6 @@
 
   function addFlow (flow) {
     // console.log('adding flow ', flow.name, flow)
-    tags = []
     var newFlow = $('.template_flow').clone()
     $(newFlow).find('[data=flow]').attr('data-flow-id', flow.id)
     $(newFlow).find('[data=title]').html(flow.name)
@@ -339,7 +347,6 @@
   }
 
   function formatCard (flowId, card, type, index) {
-    console.log(flowId)
     if (isEmptyObject(card)) return noCard()
     if (card.broken) return noCard(card.id)
     var newCard = $('.template_card').clone()
@@ -361,19 +368,18 @@
     }
     $(newCard).find('[data=card_type_' + app.uriObj.type + ']').html(app.uriObj.name)
     if (app.uriObj.color) $(newCard).find('[data=card_type_' + app.uriObj.type + ']').css('background-color',app.uriObj.color)
-    if (card.args) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions))
+    if (card.args) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions, flowId))
     // if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions))
-    if (card.delay && card.delay.number !== '0') $(newCard).find('[data=card_delay]').html('<i>delay</i>: ' + card.delay.number + (card.delay.multiplier === '60' ? ' minute' : ' second') + (card.delay.number !== '1' ? 's' : ''))
-    if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: <code>' + (card.droptoken) + '</code>')
+    if (card.delay && card.delay.number !== '0') $(newCard).find('[data=card_delay]').html('<i>delay</i>: ' + card.delay.number + (card.delay.multiplier === 60 ? ' minute' : ' second') + (card.delay.number !== '1' ? 's' : ''))
+    if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: ' + formatToken({title: card.droptoken}, flowId))
     if (definitions.tokens) {
       var tokens = '<i>tokens</i>:<br /> '
       definitions.tokens.forEach(token => {
-        tokens += '<span class="label label-info label-'+token.type+'" data-toggle="tooltip" title="type: ' + token.type + ". example: " + token.example + '">' + (token.title) + '</span> <br /> '
-        tags.push(token.id,'<span class="label label-info label-'+token.type+'" data-toggle="tooltip" title="type: ' + token.type + ". example: " + token.example + '">' + (token.title) + '</span>') 
+        tokens += formatToken(token, flowId)
       })
       $(newCard).find('[data=card_droptoken]').html(tokens)
     }
-    // if (type === 'trigger') $(newCard).find('[data=move_card_btn], [data=test_card_btn]').remove()
+    if (type === 'trigger') $(newCard).find('[data=move_card_btn], [data=test_card_btn]').remove()
     $(newCard).find('[data=test_card_btn]').attr('onClick', `testCard('${flowId}','${type}',${index})`)
     return newCard
   }
@@ -384,40 +390,33 @@
     return result
   }
 
-  function formatArgs (card, definitions) {
+  function formatArgs (card, definitions, flowId) {
     var output = ''
     Object.keys(card.args).forEach(function (argument) {
       if (Object.prototype.toString.call(definitions.args) === '[object Object]') definitions.args = [definitions.args]
       output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args ? definitions.args.filter(item => item.name === argument)[0] : undefined, card.args[argument]) + '<br>'
-
-      let b = output.indexOf("[[")
-      if (b != -1 ) {
-        output = formatToken(output)
-      }
     })
-    //output = output.replace(/\[\[/g, '<code>').replace(/]\]/g, '</code>')
+    output = output.replace(/(?:\[\[)(.*?)(?:\]\])/g, function (tag) {
+      tag = tag.replace(/\[|\]/g, '')
+      var token = {title: tag}
+      return formatToken(token, flowId)
+    })
     return output
   }
 
-  function formatToken( output ) {
-    let b = output.indexOf("[[")
-    do { 
-      let e = output.indexOf("]]")
-      console.log("do b: "+ b +" - "+ e)                
-      let tagName = output.substring(b+2,e)
-      console.log(tagName)
-      let tagFound = tags.indexOf(tagName)
-      console.log("result: " + tagFound)
-      console.log("token: " + output.substring(b+2,e))
-      if ( tagFound > -1 ) {
-        output = output.replace("[["+tagName+"]]", " " + tags[tagFound,tagFound+1])
-      } else {
-        output = output.replace("[["+tagName+"]]", "<code>" + tagName + "</code>")
-      }
-      b = output.indexOf("[[")
+  function formatToken (token, flowId) {
+    // find local token in flow
+    if (token.title.indexOf('|') > 0) {
+      let uri = token.title.split('|')[0]
+      let id = token.title.split('|')[1]
+      token = tokens.filter(x => (x.uri === uri && (x.id === id || x.title === id)))[0] || token
+    } else if (!token.type) {
+      token.type = 'string'
+      let localTriggerCard = getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id)
+      if (localTriggerCard) token = localTriggerCard.tokens.filter(x => x.id === token.title)[0] || token
     }
-    while (b != -1)
-    return output
+    var tooltipexample = token.example ? `, example: ${token.example}` : ''
+    return `<span class="label label-info label-${token.type}" data-toggle="tooltip" title="${token.type}${tooltipexample}">${token.title}</span> `
   }
 
   function formatArgValue (argDef, value) {
@@ -585,10 +584,10 @@
         loadCards(() => {
           console.log('Load flows')
           loadFlows(() => {
-            console.log('Show flows')
-            showFlows(() => {
-              console.log('Load tokens')
-              loadTokens(() => {
+            console.log('Load tokens')
+            loadTokens(() => {
+              console.log('Show flows')
+              showFlows(() => {
                 console.log('Show tokens')
                 showTokens(() => {
                   connectFlowManager(() => {
@@ -1149,7 +1148,7 @@
 
     var HomeySocket
     function connectFlowManager (callback) {
-      console.log('Connecting to Homey realtime flow manager...')
+      console.log('Connecting to Homey realtime manager...')
       var socket = io.connect(`${setup.protocol}://${setup.ip}`, {transports: ['websocket', 'polling']})
       socket.on('connect', function () {
         socket.emit("handshakeClient", {
