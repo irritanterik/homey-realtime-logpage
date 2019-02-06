@@ -48,8 +48,8 @@
     </table>
   </div>
   <script>
-  var devices = []
-  var apps = []
+  var devices = {}
+  var apps = {}
   var setting = {}
 
   if (setup.ip === '0.0.0.0') alert('Configure your Homey IP in the config.js file...')
@@ -134,46 +134,21 @@
   }
 
   function listenDevices () {
-    // get all devices and handels all events on /realtime/device/device_id/
     $.getJSON(setup.protocol + '://' + setup.ip + '/api/manager/devices/device/', function(data) {
-      addLogEntry('Start device listener', 'Will listen to realtime events of ' + Object.keys(data.result).length + ' devices', 'devices')
-      $.each(data.result, function (index, resultDevice) {
-        var device = {
-          id: resultDevice.id,
-          name: resultDevice.name
-        }
-        devices.push(device)
-        var deviceSocket = io.connect(setup.protocol + '://' + setup.ip + '/realtime/device/' + device.id + '/', {query: 'token=' + setup.bearer_token, transports: ['websocket', 'polling']})
-        console.log(setup.protocol + '://' + setup.ip + '/realtime/device/' + device.id + '/')
-        var _onevent = deviceSocket.onevent
-        deviceSocket.onevent = function (packet) { //Override incoming socket events
-          console.log(packet)
-          var args = packet.data || []
-          addLogEntry(device.name, args, 'devices')
-          _onevent.call(deviceSocket, packet)
-        }
+      addLogEntry('Start device listener', 'Will listen to realtime events of ' + Object.keys(data).length + ' devices', 'devices')
+      $.each(data, function (index, resultDevice) {
+        devices[resultDevice.id] = resultDevice.name
+        HomeySocket.emit('subscribe', 'homey:device:' + resultDevice.id)
       })
     })
   }
 
   function listenApps () {
-    // get all apps and handels all events on /realtime/app/app_id/
     $.getJSON(setup.protocol + '://' + setup.ip + '/api/manager/apps/app', function(data) {
-      addLogEntry('Start app listener', 'Will listen to realtime events of ' + Object.keys(data.result).length + ' apps', 'apps')
-      $.each(data.result, function (index, resultApp) {
-        var app = {
-          id: resultApp.id,
-          name: resultApp.name.en
-        }
-        apps.push(app)
-        var appSocket = io.connect(setup.protocol + '://' + setup.ip + '/realtime/app/' + app.id + '/', {query: 'token=' + setup.bearer_token, transports: ['websocket', 'polling']})
-        var _onevent = appSocket.onevent
-        appSocket.onevent = function (packet) { //Override incoming socket events
-          var args = packet.data || []
-          console.log('*** realtime/app', 'onevent', args, packet, app)
-          addLogEntry(app.name, args, 'apps')
-          _onevent.call(appSocket, packet)
-        }
+      addLogEntry('Start app listener', 'Will listen to realtime events of ' + Object.keys(data).length + ' apps', 'apps')
+      $.each(data, function (index, resultApp) {
+        apps[resultApp.id] = resultApp.name
+        HomeySocket.emit('subscribe', 'homey:app:' + resultApp.id)
       })
     })
   }
@@ -187,29 +162,49 @@
         homeyId: setup.homeyId,
         token: setup.bearer_token
       }, function (error, n) {
-        if (error) return console.error(error)
+        if (error) return console.error('Main socket connection error', error)
         HomeySocket = socket.io.socket(n.namespace)
         HomeySocket.onevent = function (packet) { //Override incoming socket events
           var args = packet.data || []
-          console.log('***', packet.data[0], packet.data[1], packet)
+          var category = packet.data[0].split(':')[2]
+          var eventtitle = packet.data[0].split(':')[2] + ': ' + packet.data[1]
+          var data = packet.data[2]
+
+          // console.log('***', packet.data[0], packet.data[1], packet)
           if (packet.data[2].chunk) {
-            packet.data[2] = String.fromCharCode.apply(null, new Uint8Array(packet.data[2].chunk))
+            data = String.fromCharCode.apply(null, new Uint8Array(packet.data[2].chunk))
           }
-          addLogEntry(packet.data[0].split(':')[2] + ': ' + packet.data[1], packet.data[2], packet.data[0].split(':')[2])
-          // if (category === 'appsManager' && packet.data[0] === 'ready') {
-            // addLogEntry('Start app listener for app', packet.data[1], 'apps')
-          // }
+          if (apps[packet.data[0].split(':')[2]]) {
+            category = 'apps'
+            eventtitle = apps[packet.data[0].split(':')[2]] + ': ' + packet.data[1]
+          } else if (devices[packet.data[0].split(':')[2]]) {
+            category = 'devices'
+            eventtitle = devices[packet.data[0].split(':')[2]] + ': ' + packet.data[1]
+          }
+
+          addLogEntry(eventtitle, data, category)
         }
 
         HomeySocket.once("connect", function () {
           socket.close()
+          console.log('subscribe to homey:manager:apps')
           HomeySocket.emit("subscribe", "homey:manager:apps")
+          console.log('subscribe to homey:manager:devices')
           HomeySocket.emit("subscribe", "homey:manager:devices")
+          console.log('subscribe to homey:manager:devkit')
           HomeySocket.emit("subscribe", "homey:manager:devkit")
+          console.log('subscribe to homey:manager:flow')
           HomeySocket.emit("subscribe", "homey:manager:flow")
+          console.log('subscribe to homey:manager:logic')
           HomeySocket.emit("subscribe", "homey:manager:logic")
+          console.log('subscribe to homey:manager:zigbee')
           HomeySocket.emit("subscribe", "homey:manager:zigbee")
+          console.log('subscribe to homey:manager:zwave')
           HomeySocket.emit("subscribe", "homey:manager:zwave")
+          console.log('subscribing apps')
+          listenApps()
+          console.log('subscribing devices')
+          listenDevices()
         })
         HomeySocket.once("disconnect", function (error) {
           console.log("HomeySocket disconnected", error)
@@ -228,8 +223,6 @@
   function listenToAll () {
     optionsChanged()
     connectRealtimeApi()
-    // listenApps()
-    // listenDevices()
     // listenManagerDevices()
   }
 
