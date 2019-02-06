@@ -96,7 +96,7 @@
         <h3 style="color: white">&nbsp;Folders&nbsp;&nbsp;&nbsp;
           <button class="btn btn-default" data="add_btn" data-toggle="tooltip" title="" onclick="addFolder()" data-original-title="Add folder"><i class="fa fa-plus"></i></button>
           <button class="btn btn-default" data="edit_btn" data-toggle="tooltip" title="" onclick="editFolder()" data-original-title="Edit folder"><i class="fa fa-pencil"></i></button>
-          <!--button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="" onclick="deleteFolder()" data-original-title="Delete folder"><i class="fa fa-remove"></i></button-->
+          <button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="" onclick="deleteFolder()" data-original-title="Delete folder"><i class="fa fa-remove"></i></button>
       </h3>
       <div id="folders">
         Showing <span class="label label-info">0</span> flows in <span class="label label-info">0</span> folders</h1>
@@ -249,6 +249,12 @@
               <select id="editFolder" class="form-control">
                 <option value="false">None</option>
             </select>
+          </div>
+
+          <div class="dialog_deleteFolder">
+            <label for="deleteFolder">Folder</label>
+            <select id="deleteFolder" class="form-control">
+              </select>
           </div>
 
           <div class="dialog_test form-group">
@@ -815,7 +821,7 @@
   function deleteFolderDialog (folderId, callback) {
     BootstrapDialog.show({
       title: 'Delete folder',
-      message: 'Are you sure you want to delete folder ' + getFolder(folderId).name + '?',
+      message: 'Are you sure you want to delete folder <b>' + getFolder(folderId).name + '</b>?',
       buttons: [
         {
           label: 'Cancel',
@@ -889,6 +895,7 @@
 
   function addFolder () {
     addFolderDialog(function (newName, parent) {
+      if (newName.trim().length === 0) return
       newName = newName.trim()
       var newFolderInfo = {name: newName.trim()}
       if (parent !== "false") newFolderInfo.parent = parent
@@ -907,6 +914,7 @@
     selectFolderDialog(function (folderId) {
       if (!folderId) return
       editFolderDialog(folderId, function (newName, parent) {
+        if (newName.trim().length === 0) return
         if (newName) {
           newFolderInfo = {
             name: newName.trim(),
@@ -922,6 +930,13 @@
           })
         }
       })
+    })
+  }
+
+  function deleteFolder() {
+    selectDeleteFolderDialog( function (folderId) {
+      if (!folderId) return
+      deleteFlowFolder (folderId)
     })
   }
 
@@ -979,14 +994,51 @@
     })
   }
 
+  function selectDeleteFolderDialog ( callback ) {
+    var message = $('.dialog_deleteFolder').clone()
+    buildFolderListSelector(message, 'deleteFolder')
+
+    BootstrapDialog.show({
+      title: 'Select folder to delete <i>Only empty folders can be deleted!</i>',
+      message: message,
+      buttons: [
+        {
+          label: 'Cancel',
+          action: function (dialogRef) {
+            dialogRef.close()
+            callback(false)
+          }
+        },{
+          label: 'Next',
+          action: function (dialogRef) {
+            var editFolder = dialogRef.getModalBody().find('[id=deleteFolder]').val()
+            dialogRef.close()
+            callback(editFolder)
+          }
+        }
+      ]
+    })
+  }
+
   function buildFolderListSelector(message, element, excludeId) {
     function loopNodes(folders) {
       folders.forEach(folder => addFolder(folder))
     }
 
     function addFolder(folder) {
-      $(message).find(`[id=${element}]`).append($('<option></option>').attr('value', folder.id).text(formatFolder(folder.id)))
-      if (folder.nodes) loopNodes(folder.nodes)
+      if ( element === "editFolder" ) {
+        $(message).find(`[id=${element}]`).append($('<option></option>').attr('value', folder.id).text(formatFolder(folder.id)))
+        if (folder.nodes) loopNodes(folder.nodes)
+      }
+      if ( element === "deleteFolder") {
+        if ( !folder.nodes ) {
+          if ( !folder.tags ) {
+            console.log("Op het laagste niveau en zonder flows: " + folder.text)
+            $(message).find(`[id=${element}]`).append($('<option></option>').attr('value', folder.id).text(formatFolder(folder.id)))  
+          }
+        }
+        if (folder.nodes) loopNodes(folder.nodes)
+      }
     }
 
     loopNodes(getTree(excludeId))
