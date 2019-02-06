@@ -898,6 +898,7 @@
       if (newName.trim().length === 0) return
       newName = newName.trim()
       var newFolderInfo = {name: newName.trim()}
+      if (newFolderInfo.name.length === 0) return
       if (parent !== "false") newFolderInfo.parent = parent
       $.ajax({
         url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`,
@@ -915,20 +916,18 @@
       if (!folderId) return
       editFolderDialog(folderId, function (newName, parent) {
         if (newName.trim().length === 0) return
-        if (newName) {
-          newFolderInfo = {
-            name: newName.trim(),
-            parent: parent === "false" ? null : parent
-          }
-          $.ajax({
-            url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`,
-            type: 'PUT',
-            data: JSON.stringify(newFolderInfo),
-            success: function (data) {
-              loadFolders(showFolders)
-            }
-          })
+        newFolderInfo = {
+          name: newName.trim(),
+          parent: parent === "false" ? null : parent
         }
+        $.ajax({
+          url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`,
+          type: 'PUT',
+          data: JSON.stringify(newFolderInfo),
+          success: function (data) {              
+            loadFolders(showFolders)
+         }
+        })
       })
     })
   }
@@ -971,7 +970,6 @@
   function selectFolderDialog ( callback ) {
     var message = $('.dialog_selectFolder').clone()
     buildFolderListSelector(message, 'editFolder')
-
     BootstrapDialog.show({
       title: 'Select folder to edit',
       message: message,
