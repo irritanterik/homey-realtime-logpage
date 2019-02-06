@@ -927,9 +927,9 @@
 
   function addFolderDialog ( callback ) {
     var message = $('.dialog_addFolder').clone()
-    folders.forEach(folder => {
-      $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
-    })
+
+    buildFolderListSelector(message, 'editFolder')
+
     BootstrapDialog.show({
       title: 'Add folder',
       message: message,
@@ -955,9 +955,8 @@
 
   function selectFolderDialog ( callback ) {
     var message = $('.dialog_selectFolder').clone()
-    folders.forEach(folder => {
-      $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
-    })
+    buildFolderListSelector(message, 'editFolder')
+
     BootstrapDialog.show({
       title: 'Select folder to edit',
       message: message,
@@ -980,14 +979,24 @@
     })
   }
 
+  function buildFolderListSelector(message, element, excludeId) {
+    function loopNodes(folders) {
+      folders.forEach(folder => addFolder(folder))
+    }
+
+    function addFolder(folder) {
+      $(message).find(`[id=${element}]`).append($('<option></option>').attr('value', folder.id).text(formatFolder(folder.id)))
+      if (folder.nodes) loopNodes(folder.nodes)
+    }
+
+    loopNodes(getTree(excludeId))
+  }
+
   function editFolderDialog ( folderId, callback ) {
     var message = $('.dialog_editFolder').clone()
     $(message).find('[id=editName]').attr('value', `${getFolder(folderId).name}`)
-    folders.forEach(folder => {
-      if ( folder.id != folderId ) {
-        $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
-      }
-    })
+    buildFolderListSelector(message, 'editFolder', folderId)
+
     $(message).find('[id=editFolder]').val((getFolder(folderId).parent || false).toString())
     BootstrapDialog.show({
       title: 'Change the folder name or choose another parent folder',
@@ -1179,12 +1188,13 @@
     if (flow.flow.conditions.length + flow.flow.actions.length > 0) test(flowId, flow, null)
   }
 
-  function getTree() {
+  function getTree(excludeid) {
     function treeBuild (parent) {
       var tree = []
+      if (parent && parent === excludeid) return tree
       for (var folderIndex in folders) {
         var folder = folders[folderIndex]
-        if (folder.parent == parent) {
+        if (folder.parent === parent && folder.id !== excludeid) {
           var node = {text: folder.name, nodes: treeBuild(folder.id), order: folder.sorting, id: folder.id}
           if (node.nodes.length === 0) delete node.nodes
           var flowCount = flows.filter(flow => flow.folder === folder.id).length
