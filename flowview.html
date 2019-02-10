@@ -76,6 +76,7 @@
       vertical-align: text-top;
     }
 
+    /* tokens: */
     .label-string {
       background-color: rgb(117,213,0);
       border-radius: 12px;
@@ -89,6 +90,21 @@
     .label-boolean {
       background-color: rgb(213,103,0);
       border-radius: 12px;
+    }
+
+    /* loading */
+    #loadingimg {
+    		-webkit-animation: rotation 2s infinite linear;
+        padding: 15px;
+    }
+
+    @-webkit-keyframes rotation {
+    		from {
+    				-webkit-transform: rotate(0deg);
+    		}
+    		to {
+    				-webkit-transform: rotate(359deg);
+    		}
     }
   </style>
 </head>
@@ -282,6 +298,14 @@
       </div>
     </footer>
   </div>
+  <div id="loader" class="modal fade" data-backdrop="static" data-keyboard="false" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content" center style="width: 250px">
+        <span><img id="loadingimg" height=64 src="https://etc.athom.com/logo/transparent/256.png"></span>
+        <span id="loadtext"></span>
+      </div>
+    </div>
+</div>
   <script>
   var devices = []
   var cards
@@ -506,64 +530,59 @@
     return folders.find(folder => folder.id === id)
   }
 
-  function loadCards (callback) {
-    cards = {trigger: [], condition: [], action: []}
-    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowcardtrigger/`, function(data) {
-      $.each(data, function (index, resultCardTrigger) {
-        cards.trigger.push(resultCardTrigger)
-      })
-      $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowcardcondition/`, function(data) {
-        $.each(data, function (index, resultCardCondition) {
-          cards.condition.push(resultCardCondition)
-        })
-        $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowcardaction/`, function(data) {
-          $.each(data, function (index, resultCardAction) {
-            cards.action.push(resultCardAction)
+  function loadCards () {
+    return new Promise(function (resolve) {
+      $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowcardtrigger/`, function(data) {
+        cards = {trigger: [], condition: [], action: []}
+        $.each(data, (index, resultCardTrigger) => cards.trigger.push(resultCardTrigger))
+        $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowcardcondition/`, function(data) {
+          $.each(data, (index, resultCardCondition) => cards.condition.push(resultCardCondition))
+          $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowcardaction/`, function(data) {
+            $.each(data, (index, resultCardAction) => cards.action.push(resultCardAction))
+            resolve(cards)
           })
-          callback()
         })
       })
     })
   }
 
-  function loadDevices (callback) {
-    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/devices/device/`, function(data) {
-      $.each(data, function (index, resultDevice) {
-        devices.push({id: resultDevice.id, name: resultDevice.name})
+  function loadDevices () {
+    return new Promise(function (resolve) {
+      $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/devices/device/`, function(data) {
+        devices = []
+        $.each(data, (index, resultDevice) => devices.push({id: resultDevice.id, name: resultDevice.name}))
+        resolve(devices)
       })
-      callback()
     })
   }
 
-  function loadFlows (callback) {
-    // get all flow folders
-    flows = []
-    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/`, function(data) {
-      $.each(data, function (index, flow) {
-        flows.push(flow)
+  function loadFlows () {
+    return new Promise(function (resolve) {
+      $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/`, function(data) {
+        flows = []
+        $.each(data, (index, flow) => flows.push(flow))
+        resolve(flows)
       })
-      callback()
     })
   }
 
-  function loadFolders (callback) {
-    folders = []
-    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/`, function(data) {
-      $.each(data, function (index, folder) {
-        folders.push(folder)
+  function loadFolders () {
+    return new Promise(function (resolve) {
+      $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/`, function(data) {
+        folders = []
+        $.each(data, (index, folder) => folders.push(folder))
+        resolve(folders)
       })
-      sortFolders()
-      callback()
     })
   }
 
   function loadTokens (callback) {
-    tokens = []
-    $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flowtoken/flowtoken/`, function(data) {
-      $.each(data, function (index, token) {
-        tokens.push(token)
+    return new Promise(function (resolve) {
+      $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flowtoken/flowtoken/`, function(data) {
+        tokens = []
+        $.each(data, (index, token) => tokens.push(token))
+        resolve(tokens)
       })
-      callback()
     })
   }
 
@@ -610,7 +629,6 @@
 
   function showFolders () {
     console.log('Show folders')
-    // if ($('#folders').treeview) $('#folders').treeview('remove')
     $('#folders').treeview({
       data: getTree(),
       expandIcon: 'glyphicon glyphicon-chevron-right',
@@ -630,34 +648,35 @@
     setFoldersDroppable()
   }
 
-  $.getScript(`${setup.protocol}://${setup.ip}/socket.io/socket.io.js`, () => {
-    console.log('Load devices')
-    loadDevices(() => {
-      console.log('Load folders')
-      loadFolders(() => {
-        console.log('Load cards')
-        loadCards(() => {
-          console.log('Load flows')
-          loadFlows(() => {
-            console.log('Load tokens')
-            loadTokens(() => {
-              showFlows(true)
-              showTokens()
-              showFolders()
-              connectFlowManager(() => {
-                setTimeout(ready, 500)
-              })
-            })
-          })
-        })
-      })
+  async function loadFlowsAndFolders (hideloading = true) {
+    showLoading('loading flows')
+    flows = await loadFlows()
+    showLoading('loading folders')
+    folders = await loadFolders()
+    showLoading('present flows')
+    showFlows()
+    showFolders()
+    if (hideloading) hideLoading()
+  }
+
+  async function ready() {
+    showLoading('loading devices')
+    devices = await loadDevices()
+    showLoading('loading cards')
+    cards = await loadCards()
+    showLoading('loading tokens')
+    tokens = await loadTokens()
+    showTokens()
+    await loadFlowsAndFolders(false)
+    connectFlowManager(() => {
+      setTimeout(() => {
+        $('#flow_count').html(flows.length)
+        $("#wrapper").toggleClass("toggled")
+        setTooltips()
+        hideLoading()
+        // setFlowCardsSortable()
+      }, 500)
     })
-  })
-  function ready() {
-    $('#flow_count').html(flows.length)
-    $("#wrapper").toggleClass("toggled")
-    setTooltips()
-    // setFlowCardsSortable()
   }
 
   function copyFlow (flowId) {
@@ -694,13 +713,7 @@
       $.ajax({
         url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
         type: 'DELETE',
-        success: function(data) {
-          $(`[data-flow-id=${flowId}]`).slideUp(1000)
-          loadFlows(function () {
-            showFlows()
-            showFolders()
-          })
-        }
+        success: loadFlowsAndFolders()
       })
     })
   }
@@ -715,14 +728,7 @@
       $.ajax({
         url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`,
         type: 'DELETE',
-        success: function(data) {
-          loadFlows(function () {
-            loadFolders(function () {
-              showFlows()
-              showFolders()
-            })
-          })
-        }
+        success: loadFlowsAndFolders()
       })
     })
   }
@@ -745,16 +751,12 @@
 
   function updateFlowFolder (flowId, folderId) {
     var saveFlow = {name: getFlow(flowId).name, folder: folderId}
+    console.log('save updateFlowFolder')
     $.ajax({
       url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
       type: 'PUT',
       data: JSON.stringify(saveFlow),
-      success: function(data) {
-        loadFlows(function () {
-          showFlows()
-          showFolders()
-        })
-      }
+      success: loadFlowsAndFolders()
     })
   }
 
@@ -767,12 +769,7 @@
         url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
         type: 'PUT',
         data: JSON.stringify(saveFlow),
-        success: function(data) {
-          loadFlows(function () {
-            showFlows()
-            showFolders()
-          })
-        }
+        success: loadFlowsAndFolders()
       })
     })
   }
@@ -923,9 +920,7 @@
         url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder`,
         type: 'POST',
         data: JSON.stringify(newFolderInfo),
-        success: function(data) {
-          loadFolders(showFolders)
-        }
+        success: loadFlowsAndFolders()
       })
     })
   }
@@ -943,9 +938,7 @@
           url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`,
           type: 'PUT',
           data: JSON.stringify(newFolderInfo),
-          success: function (data) {
-            loadFolders(showFolders)
-          }
+          success: loadFlowsAndFolders()
         })
       })
     })
@@ -1312,53 +1305,64 @@
   $("#menu-toggle").click(function (e) {
     e.preventDefault()
     $("#wrapper").toggleClass("toggled")
-   })
-   $("#token-toggle").click(function (e) {
-     e.preventDefault()
-     $("#tokens").toggleClass("hide")
-    })
+  })
+  $("#token-toggle").click(function (e) {
+    e.preventDefault()
+    $("#tokens").toggleClass("hide")
+  })
 
-    var HomeySocket
-    function connectFlowManager (callback) {
-      console.log('Connecting to Homey realtime manager...')
-      var socket = io.connect(`${setup.protocol}://${setup.ip}`, {transports: ['websocket', 'polling']})
-      socket.on('connect', function () {
-        socket.emit("handshakeClient", {
-          homeyId: setup.homeyId,
-          token: setup.bearer_token
-        }, function (error, n) {
-          if (error) return console.error(error)
-          HomeySocket = socket.io.socket(n.namespace)
-          HomeySocket.once("connect", function () {
-            socket.close()
-            HomeySocket.emit("subscribe", "homey:manager:flow", function() {
-              console.log('...Homey realtime flow manager connected')
-              return callback()
-            })
+  var HomeySocket
+  function connectFlowManager (callback) {
+    console.log('Connecting to Homey realtime manager...')
+    var socket = io.connect(`${setup.protocol}://${setup.ip}`, {transports: ['websocket', 'polling']})
+    socket.on('connect', function () {
+      socket.emit("handshakeClient", {
+        homeyId: setup.homeyId,
+        token: setup.bearer_token
+      }, function (error, n) {
+        if (error) return console.error(error)
+        HomeySocket = socket.io.socket(n.namespace)
+        HomeySocket.once("connect", function () {
+          socket.close()
+          HomeySocket.emit("subscribe", "homey:manager:flow", function() {
+            console.log('...Homey realtime flow manager connected')
+            return callback()
           })
-          HomeySocket.on('homey:manager:flow', function (event, data) {
-            // handler
-            if (['testFlowCardStart','testFlowCardError','testFlowCardEnd'].indexOf(event) > -1) {
-              handleFlowTestEvent(event, data)
-            } else {
-              // console.log("HomeySocket emit", event, data)
-            }
-          })
-
-          HomeySocket.once("disconnect", function (error) {
-            console.log("HomeySocket disconnected", error)
-          })
-          HomeySocket.once("error", function (error) {
-            console.error("HomeySocket error", error)
-          })
-          HomeySocket.open()
         })
+        HomeySocket.on('homey:manager:flow', function (event, data) {
+          // handler
+          if (['testFlowCardStart','testFlowCardError','testFlowCardEnd'].indexOf(event) > -1) {
+            handleFlowTestEvent(event, data)
+          } else {
+            // console.log("HomeySocket emit", event, data)
+          }
+        })
+        HomeySocket.once("disconnect", function (error) {
+          console.log("HomeySocket disconnected", error)
+        })
+        HomeySocket.once("error", function (error) {
+          console.error("HomeySocket error", error)
+        })
+        HomeySocket.open()
       })
-      socket.on('error',function (error) {
-        console.log(socket)
-      })
-    }
+    })
+    socket.on('error',function (error) {
+      console.log(socket)
+    })
+  }
 
+  function showLoading (message = '') {
+     $('#loader').modal('show')
+     $('#loadtext').html(message)
+  }
+  function hideLoading () {
+    $('#loader').modal('hide')
+  }
+
+  $.getScript(`${setup.protocol}://${setup.ip}/socket.io/socket.io.js`, () => {
+    console.log('socket script loaded')
+    ready()
+  })
 </script>
 </body>
 </html>
