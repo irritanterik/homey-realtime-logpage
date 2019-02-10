@@ -117,7 +117,7 @@
           </div>
           <div class="col-sm-8">
             <div class="form-group has-feedback">
-              <input id="search" type="text" class="form-control" placeholder="Search" onKeyDown="search()" onKeyUp="search()" onChange="search()"/>
+              <input id="search" type="text" class="form-control" placeholder="Search" onKeyUp="search()" onChange="search()"/>
               <i class="glyphicon glyphicon-search form-control-feedback"></i>
             </div>
           </div>
@@ -381,12 +381,12 @@
     var newCard = $('.template_card').clone()
     var definitions = getCard(card.uri, (type === 'trigger') ? type : type.slice(0, -1), card.id)
     if (definitions === undefined) {
-      console.log('no definitions found for card ', type, card.uri)
+      console.log(`no definitions found for ${type}-card with uri ${card.uri} in flow '${getFlow(flowId).name}', marked as 'NO CARD'`)
       return noCard()
     }
     var app = getApp(card.uri)
     if (app === undefined) {
-      console.log('no app found for card ', type, card.uri)
+      console.log(`no app found for ${type}-card with uri ${card.uri} in flow '${getFlow(flowId).name}', marked as 'NO CARD'`)
       return noCard()
     }
     $(newCard).find('[data=card]').attr('card_index', index)
@@ -568,7 +568,7 @@
   }
 
   function folderOrder (id) {
-    var order = formatOrderNumber(getFolder(id).order) + '|'
+    let order = (getFolder(id)) ? formatOrderNumber(getFolder(id).order) + '|' : '_'
     if (getFolder(id).folder) order = folderOrder(getFolder(id).folder) + order
     return order
   }
@@ -619,10 +619,12 @@
       onNodeSelected: function(event, node) {
         $('[id=search]').val(node.id)
         search()
+        setTimeout(setFoldersDroppable, 500)
       },
       onNodeUnselected: function (event, node) {
         $('[id=search]').val('')
         search()
+        setTimeout(setFoldersDroppable, 500)
       }
     })
     setFoldersDroppable()
@@ -1091,7 +1093,6 @@
         $(`:icontains(${value})`).parents('#flows [data=flow]').show()
       }
     }
-    setTimeout(setFoldersDroppable, 500)
   }
 
   var testrun = {dialog: null, flowId: null, cards: null, sessionId: null, testCardIndex: null}
