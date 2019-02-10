@@ -4,7 +4,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="config.js"></script>
   <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
-  <script src="http://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.9/js/bootstrap-dialog.min.js"></script>
 <!-- <script type="text/javascript" src="//cdn.athom.com/athom-api/2.1.147/athom-api.min.js"></script> -->
@@ -78,14 +78,17 @@
 
     .label-string {
       background-color: rgb(117,213,0);
+      border-radius: 12px;
     }
 
     .label-number {
       background-color: rgb(2,170,214);
+      border-radius: 12px;
     }
 
     .label-boolean {
       background-color: rgb(213,103,0);
+      border-radius: 12px;
     }
   </style>
 </head>
@@ -96,7 +99,7 @@
         <h3 style="color: white">&nbsp;Folders&nbsp;&nbsp;&nbsp;
           <button class="btn btn-default" data="add_btn" data-toggle="tooltip" title="" onclick="addFolder()" data-original-title="Add folder"><i class="fa fa-plus"></i></button>
           <button class="btn btn-default" data="edit_btn" data-toggle="tooltip" title="" onclick="editFolder()" data-original-title="Edit folder"><i class="fa fa-pencil"></i></button>
-          <!--button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="" onclick="deleteFolder()" data-original-title="Delete folder"><i class="fa fa-remove"></i></button-->
+          <!--button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="" onclick="deleteFlowFolder()" data-original-title="Delete folder"><i class="fa fa-remove"></i></button-->
       </h3>
       <div id="folders">
         Showing <span class="label label-info">0</span> flows in <span class="label label-info">0</span> folders</h1>
@@ -135,7 +138,7 @@
           </div>
 
           <div class="template_flow">
-            <div class="panel panel-success" data="flow" data-flow-id="">
+            <div class="panel panel-success" data="flow" data-flow-id="" data-folder-id="">
               <div class="panel-heading">
                 <div class="row">
                   <div class="col-sm-4 draghandle" data="flow_path"></div>
@@ -315,9 +318,9 @@
   }
 
   function addFlow (flow) {
-    // console.log('adding flow ', flow.name, flow)
     var newFlow = $('.template_flow').clone()
     $(newFlow).find('[data=flow]').attr('data-flow-id', flow.id)
+    $(newFlow).find('[data=flow]').attr('data-folder-id', flow.folder)
     $(newFlow).find('[data=title]').html(flow.name)
     $(newFlow).find('[data=triggercount]').html(flow.triggerCount)
     $(newFlow).find('[data=cards_trigger]').append(formatCard(flow.id, flow.trigger, 'trigger', 0).html())
@@ -341,7 +344,13 @@
     if ($(newFlow).find('[data=cards_condition_group3] .card').size() === 0 ) $(newFlow).find('[data=cards_condition_group3]').remove()
     if ($(newFlow).find('[data=cards_action_then] .card').size() === 0 ) $(newFlow).find('[data=cards_action_then]').remove()
     if ($(newFlow).find('[data=cards_action_else] .card').size() === 0 ) $(newFlow).find('[data=cards_action_else]').remove()
-    $('#flows').append(newFlow.html())
+
+    // new or existing
+    if ($(`[data-flow-id=${flow.id}]`).length > 0) {
+      $(`[data-flow-id=${flow.id}]`).replaceWith(newFlow.html())
+    } else {
+      $('#flows').append(newFlow.html())
+    }
     showFlowToggleButton(flow.id)
   }
 
@@ -372,12 +381,12 @@
     var newCard = $('.template_card').clone()
     var definitions = getCard(card.uri, (type === 'trigger') ? type : type.slice(0, -1), card.id)
     if (definitions === undefined) {
-      console.error ('no definitions found for card ', type, card.uri)
+      console.log('no definitions found for card ', type, card.uri)
       return noCard()
     }
     var app = getApp(card.uri)
     if (app === undefined) {
-      console.error ('no app found for card ', type, card.uri)
+      console.log('no app found for card ', type, card.uri)
       return noCard()
     }
     $(newCard).find('[data=card]').attr('card_index', index)
@@ -414,7 +423,7 @@
     var output = ''
     Object.keys(card.args).forEach(function (argument) {
       if (Object.prototype.toString.call(definitions.args) === '[object Object]') definitions.args = [definitions.args]
-      output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args ? definitions.args.filter(item => item.name === argument)[0] : undefined, card.args[argument]) + '<br>'
+      output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args ? definitions.args.find(item => item.name === argument) : undefined, card.args[argument]) + '<br>'
     })
     output = output.replace(/(?:\[\[)(.*?)(?:\]\])/g, function (tag) {
       tag = tag.replace(/\[|\]/g, '')
@@ -429,11 +438,11 @@
     if (token.title.indexOf('|') > 0) {
       let uri = token.title.split('|')[0]
       let id = token.title.split('|')[1]
-      token = tokens.filter(x => (x.uri === uri && (x.id === id || x.title === id)))[0] || token
+      token = tokens.find(x => (x.uri === uri && (x.id === id || x.title === id))) || token
     } else if (!token.type) {
       token.type = 'string'
       let localTriggerCard = getCard(getFlow(flowId).trigger.uri, 'trigger', getFlow(flowId).trigger.id)
-      if (localTriggerCard) token = localTriggerCard.tokens.filter(x => x.id === token.title)[0] || token
+      if (localTriggerCard && localTriggerCard.tokens) token = localTriggerCard.tokens.find(x => x.id === token.title) || token
     }
     var tooltipexample = token.example ? `, example: ${token.example}` : ''
     return `<span class="label label-info label-${token.type}" data-toggle="tooltip" title="${token.type}${tooltipexample}">${token.title}</span> `
@@ -445,7 +454,7 @@
       case 'autocomplete':
         return value.name
       case 'dropdown':
-        return argDef.values.filter(item => item.id.toString() === value.toString())[0].title
+        return argDef.values.find(item => item.id.toString() === value.toString()).title
       case 'color':
         return `<span class="colorbox" style="background-color: ${value}"> </span> (${value})`
       case 'range':
@@ -478,24 +487,23 @@
 
 
   function getApp (uri) {
-    // return cards.filter(app => app.uri === uri)[0] || {cards: { trigger: []}}
-    return cards.trigger.filter(app => app.uri === uri)[0] || cards.condition.filter(app => app.uri === uri)[0] || cards.action.filter(app => app.uri === uri)[0]
+    return cards.trigger.find(app => app.uri === uri) || cards.condition.find(app => app.uri === uri) || cards.action.find(app => app.uri === uri)
   }
 
   function getCard (uri, type, id) {
-    return cards[type].filter(card => card.id === id)[0]
+    return cards[type].find(card => card.id === id)
   }
 
   function getDevice (id) {
-    return devices.filter(device => device.id === id)[0]
+    return devices.find(device => device.id === id)
   }
 
   function getFlow (id) {
-    return flows.filter(flow => flow.id === id)[0]
+    return flows.find(flow => flow.id === id)
   }
 
   function getFolder (id) {
-    return folders.filter(folder => folder.id === id)[0]
+    return folders.find(folder => folder.id === id)
   }
 
   function loadCards (callback) {
@@ -578,14 +586,19 @@
 
   function showFlows () {
     console.log('Show flows')
-    flows.forEach(flow => {
-      flow.order = formatOrderNumber(flow.order)
-      if (flow.folder) flow.order = folderOrder(flow.folder) + flow.order
-    })
-    flows.sort((a, b) => (a.order > b.order ? 1 : -1))
-    flows.forEach(flow => {
-      addFlow(flow)
-    })
+    function loopFolders(folders) {
+      folders.forEach(folder => addFolderFlows(folder))
+    }
+
+    function addFolderFlows(folder) {
+      flows.filter(x => x.folder === folder.id).sort((a, b) => a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1).map(flow => addFlow(flow))
+      if (folder.nodes) loopFolders(folder.nodes)
+    }
+
+    addFolderFlows({id: null}) // toplevel
+    loopFolders(getTree())     // folder structur
+    setFlowsDraggable()
+    search()
   }
 
   function showTokens () {
@@ -597,24 +610,22 @@
 
   function showFolders () {
     console.log('Show folders')
-    $('#folders').treeview('remove')
+    // if ($('#folders').treeview) $('#folders').treeview('remove')
     $('#folders').treeview({
       data: getTree(),
       expandIcon: 'glyphicon glyphicon-chevron-right',
       collapseIcon: 'glyphicon glyphicon-chevron-down',
       showTags: true,
       onNodeSelected: function(event, node) {
-        $('[data=flow]').hide()
-        flows.filter(flow => flow.folder === node.id).forEach(flow => {
-          $(`[data-flow-id=${flow.id}]`).show()
-        })
-        setTimeout(setFoldersDroppable, 500)
+        $('[id=search]').val(node.id)
+        search()
       },
       onNodeUnselected: function (event, node) {
-        $('#flows [data=flow]').show()
-        setTimeout(setFoldersDroppable, 500)
+        $('[id=search]').val('')
+        search()
       }
     })
+    setFoldersDroppable()
   }
 
   $.getScript(`${setup.protocol}://${setup.ip}/socket.io/socket.io.js`, () => {
@@ -628,7 +639,7 @@
           loadFlows(() => {
             console.log('Load tokens')
             loadTokens(() => {
-              showFlows()
+              showFlows(true)
               showTokens()
               showFolders()
               connectFlowManager(() => {
@@ -644,8 +655,6 @@
     $('#flow_count').html(flows.length)
     $("#wrapper").toggleClass("toggled")
     setTooltips()
-    setFlowsDraggable()
-    setFoldersDroppable()
     // setFlowCardsSortable()
   }
 
@@ -685,19 +694,32 @@
         type: 'DELETE',
         success: function(data) {
           $(`[data-flow-id=${flowId}]`).slideUp(1000)
+          loadFlows(function () {
+            showFlows()
+            showFolders()
+          })
         }
       })
     })
   }
 
   function deleteFlowFolder (folderId) {
-    deleteFolderDialog(folderId, function(doDelete) {
+    deleteFlowFolderDialog(folderId, function(doDelete) {
+      // todo: loop childfolders and move them up
+      // todo: Loop folders and move them up
+
+
       if (!doDelete) return
       $.ajax({
         url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`,
         type: 'DELETE',
         success: function(data) {
-          location.reload()
+          loadFlows(function () {
+            loadFolders(function () {
+              showFlows()
+              showFolders()
+            })
+          })
         }
       })
     })
@@ -726,30 +748,35 @@
       type: 'PUT',
       data: JSON.stringify(saveFlow),
       success: function(data) {
-        location.reload()
+        loadFlows(function () {
+          showFlows()
+          showFolders()
+        })
       }
     })
   }
 
   function editFlow (flowId) {
     editFlowDialog(flowId, function(newName, newFolder) {
-      if (newName) {
-        if (newFolder === 'false') newFolder = null
-        var saveFlow = {name: newName, folder: newFolder}
-        $.ajax({
-          url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
-          type: 'PUT',
-          data: JSON.stringify(saveFlow),
-          success: function(data) {
-            location.reload()
-          }
-        })
-      }
+      if (newFolder === 'false') newFolder = null
+      var saveFlow = {name: newName.trim(), folder: newFolder}
+      if (saveFlow.name.length === 0) return
+      $.ajax({
+        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
+        type: 'PUT',
+        data: JSON.stringify(saveFlow),
+        success: function(data) {
+          loadFlows(function () {
+            showFlows()
+            showFolders()
+          })
+        }
+      })
     })
   }
 
   function toggleFlow (flowId) {
-    flows.filter(flow => flow.id === flowId)[0].enabled = !getFlow(flowId).enabled
+    flows.find(flow => flow.id === flowId).enabled = !getFlow(flowId).enabled
     $.ajax({
       url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
       type: 'PUT',
@@ -793,7 +820,7 @@
   function deleteFlowDialog (flowId, callback) {
     BootstrapDialog.show({
       title: 'Delete flow',
-      message: 'Are you sure you want to delete flow ' + getFlow(flowId).title + '?',
+      message: 'Are you sure you want to delete flow ' + getFlow(flowId).name + '?',
       buttons: [
         {
           label: 'Cancel',
@@ -812,7 +839,7 @@
     })
   }
 
-  function deleteFolderDialog (folderId, callback) {
+  function deleteFlowFolderDialog (folderId, callback) {
     BootstrapDialog.show({
       title: 'Delete folder',
       message: 'Are you sure you want to delete folder ' + getFolder(folderId).name + '?',
@@ -836,10 +863,8 @@
 
   function editFlowDialog (flowId, callback) {
     var message = $('.dialog_edit').clone()
+    buildFolderListSelector(message, 'editFolder')
     $(message).find('[id=editName]').attr('value', `${getFlow(flowId).name}`)
-    folders.forEach(folder => {
-      $(message).find('[id=editFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
-    })
     $(message).find('[id=editFolder]').val((getFlow(flowId).folder || false).toString())
     BootstrapDialog.show({
       title: 'Edit and move flow',
@@ -1054,9 +1079,19 @@
   // }
 
   function search () {
-    value = $('[id=search]').val()
-    $('[data=flow]').hide()
-    $(`:icontains(${value})`).parents('#flows [data=flow]').show()
+    var value = $('[id=search]').val()
+    console.log('search', value)
+    if (!value) {
+      $('[data=flow]').show()
+    } else {
+      $('[data=flow]').hide()
+      if ($(`[data-folder-id="${value}"]`).length > 0) {
+        $(`[data-folder-id="${value}"]`).show()
+      } else {
+        $(`:icontains(${value})`).parents('#flows [data=flow]').show()
+      }
+    }
+    setTimeout(setFoldersDroppable, 500)
   }
 
   var testrun = {dialog: null, flowId: null, cards: null, sessionId: null, testCardIndex: null}
@@ -1187,13 +1222,15 @@
   }
 
   function getTree(excludeid) {
+    var selected = $('[id=search]').val()
     function treeBuild (parent) {
       var tree = []
       if (parent && parent === excludeid) return tree
       for (var folderIndex in folders) {
         var folder = folders[folderIndex]
         if (folder.parent === parent && folder.id !== excludeid) {
-          var node = {text: folder.name, nodes: treeBuild(folder.id), order: folder.sorting, id: folder.id}
+          var node = {text: folder.name, nodes: treeBuild(folder.id), order: folder.sorting, id: folder.id, state: {}}
+          if (selected === folder.id) node.state.selected = true
           if (node.nodes.length === 0) delete node.nodes
           var flowCount = flows.filter(flow => flow.folder === folder.id).length
           if (flowCount > 0) node.tags = [flowCount]
@@ -1216,19 +1253,22 @@
     })
   }
 
-  function orderFlowView () {
-    var list = $('#flows [data=flow]')
-    list.sort((a, b) => {
-      return (getFlow($(a).data('flow-id')).order > (getFlow($(b).data('flow-id')).order) ? 1 : -1)
-    })
-    $("#flows").html(list)
-    setFlowsDraggable()
-    // setFlowCardsSortable()
-    setTooltips()
-  }
+  // function orderFlowView () {
+  //   // todo -> filter by getTree structure
+  //
+  //   var list = $('#flows [data=flow]')
+  //   list.sort((a, b) => {
+  //     return (getFlow($(a).data('flow-id')).order > (getFlow($(b).data('flow-id')).order) ? 1 : -1)
+  //   })
+  //   $("#flows").html(list)
+  //   setFlowsDraggable()
+  //   // setFlowCardsSortable()
+  //   setTooltips()
+  // }
 
 
   function setFoldersDroppable () {
+    console.log('setFoldersDroppable', $('#folders li').length)
     $('#folders li').droppable({
       accept: '[data=flow]',
       tolerance: 'pointer',
