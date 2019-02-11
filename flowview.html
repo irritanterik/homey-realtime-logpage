@@ -2,7 +2,7 @@
 <head>
   <title>Flow Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script> const version = '2.0.0' </script>
+  <script> const version = '2.0.1' </script>
   <script src="config.js"></script>
   <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
@@ -423,7 +423,6 @@
     $(newCard).find('[data=card_type_' + app.uriObj.type + ']').html(app.uriObj.name)
     if (app.uriObj.color) $(newCard).find('[data=card_type_' + app.uriObj.type + ']').css('background-color',app.uriObj.color)
     if (card.args) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions, flowId))
-    // if (!isEmptyObject(card.args)) $(newCard).find('[data=card_args]').html(formatArgs(card, definitions))
     if (card.delay && card.delay.number !== '0') $(newCard).find('[data=card_delay]').html('<i>delay</i>: ' + card.delay.number + (card.delay.multiplier === 60 ? ' minute' : ' second') + (card.delay.number !== '1' ? 's' : ''))
     if (card.droptoken) $(newCard).find('[data=card_droptoken]').html('<i>token</i>: ' + formatToken({title: card.droptoken}, flowId))
     if (definitions.tokens) {
@@ -515,7 +514,7 @@
   }
 
   function getCard (uri, type, id) {
-    return cards[type].find(card => card.id === id)
+    return cards[type].find(card => (card.id === id && card.uri === uri))
   }
 
   function getDevice (id) {
