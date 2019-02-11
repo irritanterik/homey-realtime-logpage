@@ -2,6 +2,7 @@
 <head>
   <title>Flow Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script> const version = '2.0.0' </script>
   <script src="config.js"></script>
   <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
@@ -472,8 +473,7 @@
     return `<span class="label label-info label-${token.type}" data-toggle="tooltip" title="${token.type}${tooltipexample}">${token.title}</span> `
   }
 
-  function formatArgValue (argDef, value) {
-    if (argDef === undefined && typeof value === 'object') argDef = {type: 'object'}  //todo: v2 workaround
+  function formatArgValue (argDef = {type: 'object'}, value) {
     switch (argDef.type) {
       case 'autocomplete':
         return value.name
@@ -1363,6 +1363,8 @@
     console.log('socket script loaded')
     ready()
   })
+
+  console.log(`Welcome to flowviewer v${version} - https://github.com/irritanterik/homey-realtime-logpage`)
 </script>
 </body>
 </html>
