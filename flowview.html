@@ -2,7 +2,7 @@
 <head>
   <title>Flow Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script> const version = '2.0.1' </script>
+  <script> const version = '2.0.2' </script>
   <script src="config.js"></script>
   <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
@@ -17,7 +17,8 @@
   <style>
     body {
       background-image: linear-gradient(#187596, #029680);
-      font-family: Roboto,Helvetica,sans-serif;
+      font-family: "Roboto", Helvetica, sans-serif;
+      font-weight: 300;
     }
 
     h1 {
@@ -124,7 +125,7 @@
     </div>
     <div id="page-content-wrapper">
       <div class=container-fluid>
-        <h1>Homey 2 flow viewer</h1>
+        <h1>Homey Flow Viewer <span id="version" class=h3></span></h1>
         <div class="row">
           <div class="form-group col-sm-2">
             <a href="#menu-toggle" class="btn btn-default" id="menu-toggle">Toggle folders</a>
@@ -169,7 +170,7 @@
                     <span class="label label-danger" data="label_broken"></span>
                     <button class="btn btn-default" data="toggle_btn" data-toggle="tooltip" title="Enable or disable"><i class="fa fa-square-o"></i></button>
                     <button class="btn btn-default" data="edit_btn"   data-toggle="tooltip" title="Rename & Move"><i class="fa fa-pencil"></i></button>
-                    <!-- <button class="btn btn-default" data="copy_btn"   data-toggle="tooltip" title="Copy"><i class="fa fa-clone"></i></button> -->
+                    <button class="btn btn-default" data="copy_btn"   data-toggle="tooltip" title="Copy"><i class="fa fa-clone"></i></button>
                     <button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="Delete"><i class="fa fa-remove"></i></button>
                   </div>
                 </div>
@@ -314,6 +315,7 @@
   var flows = []
   var tokens = []
 
+  $('#version').html(version)
   if (setup.ip === '0.0.0.0') alert('Configure your Homey IP in the config.js file...')
   if (setup.bearer_token === 'your token') alert('Configure your Bearer token in the config.js file...')
   if (setup.homeyId === 'your Homey ID') alert('Configure your Homey ID in the config.js file...')
@@ -363,6 +365,7 @@
     if (flow.broken) {
       $(newFlow).find('[data=flow]').removeClass("panel-success").addClass("panel-danger")
       $(newFlow).find('[data=label_broken]').html("BROKEN")
+      $(newFlow).find('[data=copy_btn]').remove()
     }
     if ($(newFlow).find('[data=cards_condition_group1] .card').size() === 0 ) $(newFlow).find('[data=cards_condition_group1]').remove()
     if ($(newFlow).find('[data=cards_condition_group2] .card').size() === 0 ) $(newFlow).find('[data=cards_condition_group2]').remove()
@@ -678,28 +681,27 @@
     })
   }
 
+  function cleanFlowV2 (flow) {
+    delete flow.broken
+    if (flow.actions) flow.actions.forEach((action, index) => {if (action.droptoken === false) delete flow.actions[index].droptoken})
+    if (flow.conditions) flow.conditions.forEach((condition, index) => {if (condition.droptoken === false) delete flow.condition[index].droptoken})
+    return flow
+  }
+
+
   function copyFlow (flowId) {
     copyFlowDialog(flowId, function(newName, newFolder) {
       if (newName) {
         if (newFolder === 'false') newFolder = false
-        $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`, function(data) {
-          if (data.status !== 200) return alert('Copy failure... getting existing flow')
-          var existingFlow = data.result
-          $.post(`${setup.protocol}://${setup.ip}/api/manager/flow/flow`, function(data) {
-            if (data.status !== 200) return alert('Copy failure... requesting new id')
-            var newFlow = existingFlow
-            newFlow.id = data.result.id
-            newFlow.title = newName
-            newFlow.folder = newFolder
-            newFlow.order = data.result.order
-            $.ajax({
-              url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${newFlow.id}`,
-              type: 'PUT',
-              data: JSON.stringify(newFlow),
-              success: function(data) {
-                location.reload()
-              }
-            })
+        $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`, function(existingFlow) {
+          if (existingFlow.broken) return alert('Cannot clone a broken flow!')
+          var newFlow = cleanFlowV2(existingFlow)
+          newFlow.name = newName
+          newFlow.folder = newFolder
+          $.post(`${setup.protocol}://${setup.ip}/api/manager/flow/flow`, JSON.stringify(newFlow), function(data) {
+            console.log('new id', data.id || data)
+            if (!data.id) return alert('Copy failure...')
+            loadFlowsAndFolders()
           })
         })
       }
@@ -787,11 +789,9 @@
 
   function copyFlowDialog (flowId, callback) {
     var message = $('.dialog_copy').clone()
-    $(message).find('[id=copyName]').attr('value', `${getFlow(flowId).title} (copy)`)
-    folders.forEach(folder => {
-      $(message).find('[id=copyFolder]').append($("<option></option>").attr("value", folder.id).text(formatFolder(folder.id)))
-    })
-    $(message).find('[id=copyFolder]').val(getFlow(flowId).folder.toString())
+    buildFolderListSelector(message, 'copyFolder')
+    $(message).find('[id=copyFolder]').val((getFlow(flowId).folder || false).toString())
+    $(message).find('[id=copyName]').attr('value', `${getFlow(flowId).name} (copy)`)
     BootstrapDialog.show({
       title: 'Copy flow',
       message: message,
@@ -1059,17 +1059,15 @@
   //     existingFlow.actions = orderArrayByIndexMap(existingFlow.actions, actionsOrder)
   //     getFlow(flowId).conditions = existingFlow.conditions
   //     getFlow(flowId).actions = existingFlow.actions
-  //     $.ajax({
-  //       url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
-  //       type: 'PUT',
-  //       data: JSON.stringify(existingFlow),
-  //       success: function(data) {
-  //         // reset order
-  //         console.log('order saved')
-  //         // location.reload()
-  //       }
-  //     })
-  //   })
+      // $.ajax({
+      //   url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
+      //   type: 'PUT',
+      //   data: JSON.stringify(flowObject),
+      //   success: function(data) {
+      //     console.log('Hoera')
+      //   }
+      // })
+    // })
   // }
 
   function search () {
