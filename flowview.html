@@ -2,7 +2,7 @@
 <head>
   <title>Flow Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script> const version = '2.0.2' </script>
+  <script> const version = '2.0.3' </script>
   <script src="config.js"></script>
   <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
@@ -113,12 +113,14 @@
 <body>
   <div id="wrapper" class="toggled">
     <div id="sidebar-wrapper">
-        <br />
-        <h3 style="color: white">&nbsp;Folders&nbsp;&nbsp;&nbsp;
-          <button class="btn btn-default" data="add_btn" data-toggle="tooltip" title="" onclick="addFolder()" data-original-title="Add folder"><i class="fa fa-plus"></i></button>
-          <button class="btn btn-default" data="edit_btn" data-toggle="tooltip" title="" onclick="editFolder()" data-original-title="Edit folder"><i class="fa fa-pencil"></i></button>
-          <!--button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="" onclick="deleteFlowFolder()" data-original-title="Delete folder"><i class="fa fa-remove"></i></button-->
-      </h3>
+      <br />
+      <br />
+      <span style="color: white" class="h3">&nbsp;Folders</span>&nbsp;&nbsp;&nbsp;
+      <button class="btn btn-default" data="add_btn" data-toggle="tooltip" title="" onclick="addFlowFolder()" data-original-title="Add folder"><i class="fa fa-plus"></i></button>
+      <button class="btn btn-default" data="edit_btn" data-toggle="tooltip" title="" onclick="editFlowFolder()" data-original-title="Edit folder"><i class="fa fa-pencil"></i></button>
+      <button class="btn btn-default" data="delete_btn" data-toggle="tooltip" title="" onclick="deleteFlowFolder()" data-original-title="Delete folder"><i class="fa fa-remove"></i></button>
+      <br />
+      <br />
       <div id="folders">
         Showing <span class="label label-info">0</span> flows in <span class="label label-info">0</span> folders</h1>
       </div>
@@ -231,44 +233,35 @@
           </div>
 
           <div class="dialog_copy form-group">
-            <label for="copyName">New name</label>
+            <label for="copyName">New flow name</label>
             <input id="copyName" class="form-control" type="text"  value="">
-            <label for="copyFolder">Copy to folder</label>
+            <label for="copyFolder">Parent folder</label>
             <select id="copyFolder" class="form-control">
               <option value="false">None</option>
             </select>
           </div>
 
           <div class="dialog_edit form-group">
-            <label for="editName">Name</label>
+            <label for="editName">Flow name</label>
             <input id="editName" class="form-control" type="text"  value="">
-            <label for="editFolder">Folder</label>
+            <label for="editFolder">Parent folder</label>
             <select id="editFolder" class="form-control">
               <option value="false">None</option>
             </select>
           </div>
 
-          <div class="dialog_addFolder">
-            <label for="addName" >Name</label>
-            <input id="addFolder" class="form-control" type="text" value="">
-            <label for="editFolder">In folder</label>
-            <select id="editFolder" class="form-control">
+          <div class="dialog_folder_edit">
+            <label for="folderName" >Folder name</label>
+            <input id="folderName" class="form-control" type="text" value="">
+            <label for="folderParent">Parent folder</label>
+            <select id="folderParent" class="form-control">
               <option value="false">None</option>
             </select>
           </div>
 
-          <div class="dialog_selectFolder">
-            <label for="editFolder">Folder</label>
-            <select id="editFolder" class="form-control">
-              </select>
-            </div>
-
-            <div class="dialog_editFolder">
-              <label for="editName" >Name</label>
-              <input id="editName" class="form-control" type="text" value="">
-              <label for="editFolder">In folder</label>
-              <select id="editFolder" class="form-control">
-                <option value="false">None</option>
+          <div class="dialog_folder_select">
+            <label for="folder">Folder</label>
+            <select id="folder" class="form-control">
             </select>
           </div>
 
@@ -302,7 +295,7 @@
   </div>
   <div id="loader" class="modal fade" data-backdrop="static" data-keyboard="false" tabindex="-1">
     <div class="modal-dialog modal-sm">
-      <div class="modal-content" center style="width: 250px">
+      <div class="modal-content" center style="width: 350px">
         <span><img id="loadingimg" height=64 src="https://etc.athom.com/logo/transparent/256.png"></span>
         <span id="loadtext"></span>
       </div>
@@ -382,25 +375,133 @@
     showFlowToggleButton(flow.id)
   }
 
-  function noCard (id) {
-    var noCard = $('<div />')
-    if (id) {
-      noCard.html(`<br><span class="label label-danger">NO CARD (${id})</span>`)
-    } else {
-      noCard.html('<br><span class="label label-danger">NO CARD</span>')
+  async function asyncForEach(array, callback) {
+    for (let index = 0; index < array.length; index++) {
+      await callback(array[index], index, array)
     }
-    return noCard
   }
 
-  function formatCards (flow, type, group) {
-    // if (type === 'actions' && flow[type].length === 0) return noCard()
-    var newCards = $("<div />")
-    flow[type].forEach(function (card, index) {
-      if (!group || card.group === group) {
-        newCards.append(formatCard(flow.id, card, type, index).html())
+  function cleanFlowV2 (flow) {
+    delete flow.broken
+    if (flow.actions) flow.actions.forEach((action, index) => {if (action.droptoken === false) delete flow.actions[index].droptoken})
+    if (flow.conditions) flow.conditions.forEach((condition, index) => {if (condition.droptoken === false) delete flow.condition[index].droptoken})
+    return flow
+  }
+
+  function conditionTitleParse (e, t) {
+    var a = e.match(/\!\{\{(.*?)\}\}/g)
+    if (a === null) return e
+    a.forEach(function(a) {
+      var n = a
+      if('!' == a.charAt(0)) a = a.substring(1)
+      e = e.replace(n, a.replace('{{', '').replace('}}', '').split('|')[t ? 0 : 1] || '')
+    })
+    return e
+  }
+
+  function copyFlow (flowId) {
+    copyFlowDialog(flowId, function(newName, newFolder) {
+      if (newName) {
+        if (newFolder === 'false') newFolder = false
+        $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`, function(existingFlow) {
+          if (existingFlow.broken) return alert('Cannot clone a broken flow!')
+          var newFlow = cleanFlowV2(existingFlow)
+          newFlow.name = newName
+          newFlow.folder = newFolder
+          $.post(`${setup.protocol}://${setup.ip}/api/manager/flow/flow`, JSON.stringify(newFlow), function(data) {
+            console.log('new id', data.id || data)
+            if (!data.id) return alert('Copy failure...')
+            loadFlowsAndFolders()
+          })
+        })
       }
     })
-    return newCards
+  }
+
+  function deleteFlow (flowId) {
+    deleteFlowDialog(flowId, function(doDelete) {
+      if (!doDelete) return
+      $.ajax({
+        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
+        type: 'DELETE',
+        success: loadFlowsAndFolders()
+      })
+    })
+  }
+
+  function deleteFlowFolder () {
+    selectFlowFolderDialog(function (folderId) {
+      if (!folderId) return
+      deleteFlowFolderDialog(folderId, async function(doDelete) {
+        if (!doDelete) return
+        let parentId = getFolder(folderId).parent || null
+        await asyncForEach(flows.filter(flow => flow.folder === folderId), async (flow) => {
+          showLoading('move flow ' + flow.name)
+          console.log('move flow ', flow.id)
+          await saveFlow(flow.id, {folder: parentId})
+        })
+        await asyncForEach(folders.filter(folder => folder.parent === folderId), async (folder) => {
+          showLoading('move subfolder ' + folder.name)
+          console.log('move subfolder', folder.id)
+          await saveFlowFolder(folder.id, {parent: parentId})
+        })
+        $.ajax({
+          url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`,
+          type: 'DELETE',
+          success: loadFlowsAndFolders()
+        })
+      })
+    })
+  }
+
+  function editFlow (flowId) {
+    editFlowDialog(flowId, async function (newName, newFolder) {
+      if (newFolder === 'false') newFolder = null
+      var saveFlow = {name: newName.trim(), folder: newFolder}
+      if (saveFlow.name.length === 0) return
+      await saveFlow(flowId, saveFlow)
+    })
+  }
+
+  function folderOrder (id) {
+    let order = (getFolder(id)) ? formatOrderNumber(getFolder(id).order) + '|' : '_'
+    if (getFolder(id).folder) order = folderOrder(getFolder(id).folder) + order
+    return order
+  }
+
+  function formatArgs (card, definitions, flowId) {
+    var output = ''
+    Object.keys(card.args).forEach(function (argument) {
+      if (Object.prototype.toString.call(definitions.args) === '[object Object]') definitions.args = [definitions.args]
+      output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args ? definitions.args.find(item => item.name === argument) : undefined, card.args[argument]) + '<br>'
+    })
+    output = output.replace(/(?:\[\[)(.*?)(?:\]\])/g, function (tag) {
+      tag = tag.replace(/\[|\]/g, '')
+      var token = {title: tag}
+      return formatToken(token, flowId)
+    })
+    return output
+  }
+
+  function formatArgValue (argDef = {type: 'object'}, value) {
+    switch (argDef.type) {
+      case 'autocomplete':
+        return value.name
+      case 'dropdown':
+        return argDef.values.find(item => item.id.toString() === value.toString()).title
+      case 'color':
+        return `<span class="colorbox" style="background-color: ${value}"> </span> (${value})`
+      case 'range':
+        return value * (argDef.labelMultiplier || 1) + (argDef.title || '')
+      case 'object':
+        return value.name || JSON.stringify(value)
+      case 'text':
+      case 'number':
+      case 'time':
+        return value
+      default:
+        return value
+    }
   }
 
   function formatCard (flowId, card, type, index) {
@@ -440,24 +541,25 @@
     return newCard
   }
 
+  function formatCards (flow, type, group) {
+    // if (type === 'actions' && flow[type].length === 0) return noCard()
+    var newCards = $("<div />")
+    flow[type].forEach(function (card, index) {
+      if (!group || card.group === group) {
+        newCards.append(formatCard(flow.id, card, type, index).html())
+      }
+    })
+    return newCards
+  }
+
   function formatFolder (id) {
     var result = getFolder(id).name
     if (getFolder(id).parent) result = formatFolder(getFolder(id).parent) + " > " + result
     return result
   }
 
-  function formatArgs (card, definitions, flowId) {
-    var output = ''
-    Object.keys(card.args).forEach(function (argument) {
-      if (Object.prototype.toString.call(definitions.args) === '[object Object]') definitions.args = [definitions.args]
-      output += '<i>' + argument + '</i>: ' + formatArgValue(definitions.args ? definitions.args.find(item => item.name === argument) : undefined, card.args[argument]) + '<br>'
-    })
-    output = output.replace(/(?:\[\[)(.*?)(?:\]\])/g, function (tag) {
-      tag = tag.replace(/\[|\]/g, '')
-      var token = {title: tag}
-      return formatToken(token, flowId)
-    })
-    return output
+  function formatOrderNumber (order) {
+    return ('00000' + order).slice(-5)
   }
 
   function formatToken (token, flowId) {
@@ -474,43 +576,6 @@
     var tooltipexample = token.example ? `, example: ${token.example}` : ''
     return `<span class="label label-info label-${token.type}" data-toggle="tooltip" title="${token.type}${tooltipexample}">${token.title}</span> `
   }
-
-  function formatArgValue (argDef = {type: 'object'}, value) {
-    switch (argDef.type) {
-      case 'autocomplete':
-        return value.name
-      case 'dropdown':
-        return argDef.values.find(item => item.id.toString() === value.toString()).title
-      case 'color':
-        return `<span class="colorbox" style="background-color: ${value}"> </span> (${value})`
-      case 'range':
-        return value * (argDef.labelMultiplier || 1) + (argDef.title || '')
-      case 'object':
-        return value.name || JSON.stringify(value)
-      case 'text':
-      case 'number':
-      case 'time':
-        return value
-      default:
-        return value
-    }
-  }
-
-  function isEmptyObject (obj) {
-    return Object.getOwnPropertyNames(obj).length === 0
-  }
-
-  function conditionTitleParse (e, t) {
-    var a = e.match(/\!\{\{(.*?)\}\}/g)
-    if (a === null) return e
-    a.forEach(function(a) {
-      var n = a
-      if('!' == a.charAt(0)) a = a.substring(1)
-      e = e.replace(n, a.replace('{{', '').replace('}}', '').split('|')[t ? 0 : 1] || '')
-    })
-    return e
-  }
-
 
   function getApp (uri) {
     return cards.trigger.find(app => app.uri === uri) || cards.condition.find(app => app.uri === uri) || cards.action.find(app => app.uri === uri)
@@ -530,6 +595,10 @@
 
   function getFolder (id) {
     return folders.find(folder => folder.id === id)
+  }
+
+  function isEmptyObject (obj) {
+    return Object.getOwnPropertyNames(obj).length === 0
   }
 
   function loadCards () {
@@ -568,6 +637,18 @@
     })
   }
 
+  async function loadFlowsAndFolders (hideloading = true) {
+    showLoading('loading flows')
+    flows = await loadFlows()
+    showLoading('loading folders')
+    folders = await loadFolders()
+    showLoading('present flows')
+    showFolders()
+    showLoading('making Homey great again')
+    showFlows()
+    if (hideloading) hideLoading()
+  }
+
   function loadFolders () {
     return new Promise(function (resolve) {
       $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/`, function(data) {
@@ -588,21 +669,38 @@
     })
   }
 
-  function folderOrder (id) {
-    let order = (getFolder(id)) ? formatOrderNumber(getFolder(id).order) + '|' : '_'
-    if (getFolder(id).folder) order = folderOrder(getFolder(id).folder) + order
-    return order
+  function noCard (id) {
+    var noCard = $('<div />')
+    if (id) {
+      noCard.html(`<br><span class="label label-danger">NO CARD (${id})</span>`)
+    } else {
+      noCard.html('<br><span class="label label-danger">NO CARD</span>')
+    }
+    return noCard
   }
 
-  function formatOrderNumber (order) {
-    return ('00000' + order).slice(-5)
-  }
-
-  function sortFolders () {
-    folders.forEach(folder => {
-      folder.sorting = folderOrder(folder.id)
+  function saveFlow (flowId, flow) {
+    return new Promise((resolve, reject) => {
+      $.ajax({
+        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
+        type: 'PUT',
+        data: JSON.stringify(flow),
+        success: resolve,
+        error: reject
+      })
     })
-    folders.sort((a, b) => (a.sorting > b.sorting ? 1 : -1))
+  }
+
+  function saveFlowFolder (folderId, folder) {
+    return new Promise((resolve, reject) => {
+      $.ajax({
+        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`,
+        type: 'PUT',
+        data: JSON.stringify(folder),
+        success: resolve,
+        error: reject
+      })
+    })
   }
 
   function showFlows () {
@@ -622,11 +720,20 @@
     search()
   }
 
-  function showTokens () {
-    console.log('Show tokens')
-    tokens.forEach(token => {
-      addToken(token)
-    })
+  function showFlowToggleButton (flowId) {
+    if (getFlow(flowId).enabled) {
+      $(`[data-flow-id=${flowId}] [data=label_disabled]`).html("")
+      $(`[data-flow-id=${flowId}] [data=toggle_btn] i`).removeClass('fa-square-o').addClass('fa-check-square-o')
+      if (!getFlow(flowId).broken) {
+        $(`[data-flow-id=${flowId}]`).removeClass("panel-default").addClass("panel-success")
+      }
+    } else {
+      $(`[data-flow-id=${flowId}] [data=label_disabled]`).html("DISABLED")
+      $(`[data-flow-id=${flowId}] [data=toggle_btn] i`).removeClass('fa-check-square-o').addClass('fa-square-o')
+      if (!getFlow(flowId).broken) {
+        $(`[data-flow-id=${flowId}]`).removeClass("panel-success").addClass("panel-default")
+      }
+    }
   }
 
   function showFolders () {
@@ -637,12 +744,11 @@
       collapseIcon: 'glyphicon glyphicon-chevron-down',
       showTags: true,
       onNodeSelected: function(event, node) {
-        $('[id=search]').val(node.id)
+        $('[id=search]').val('')
         search()
         setTimeout(setFoldersDroppable, 500)
       },
       onNodeUnselected: function (event, node) {
-        $('[id=search]').val('')
         search()
         setTimeout(setFoldersDroppable, 500)
       }
@@ -650,15 +756,18 @@
     setFoldersDroppable()
   }
 
-  async function loadFlowsAndFolders (hideloading = true) {
-    showLoading('loading flows')
-    flows = await loadFlows()
-    showLoading('loading folders')
-    folders = await loadFolders()
-    showLoading('present flows')
-    showFlows()
-    showFolders()
-    if (hideloading) hideLoading()
+  function showTokens () {
+    console.log('Show tokens')
+    tokens.forEach(token => {
+      addToken(token)
+    })
+  }
+
+  function sortFolders () {
+    folders.forEach(folder => {
+      folder.sorting = folderOrder(folder.id)
+    })
+    folders.sort((a, b) => (a.sorting > b.sorting ? 1 : -1))
   }
 
   async function ready() {
@@ -681,110 +790,16 @@
     })
   }
 
-  function cleanFlowV2 (flow) {
-    delete flow.broken
-    if (flow.actions) flow.actions.forEach((action, index) => {if (action.droptoken === false) delete flow.actions[index].droptoken})
-    if (flow.conditions) flow.conditions.forEach((condition, index) => {if (condition.droptoken === false) delete flow.condition[index].droptoken})
-    return flow
+  async function updateFlowFolder (flowId, folderId) {
+    var flow = {name: getFlow(flowId).name, folder: folderId}
+    await saveFlow(flowId, flow)
+    await loadFlowsAndFolders()
   }
 
-
-  function copyFlow (flowId) {
-    copyFlowDialog(flowId, function(newName, newFolder) {
-      if (newName) {
-        if (newFolder === 'false') newFolder = false
-        $.getJSON(`${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`, function(existingFlow) {
-          if (existingFlow.broken) return alert('Cannot clone a broken flow!')
-          var newFlow = cleanFlowV2(existingFlow)
-          newFlow.name = newName
-          newFlow.folder = newFolder
-          $.post(`${setup.protocol}://${setup.ip}/api/manager/flow/flow`, JSON.stringify(newFlow), function(data) {
-            console.log('new id', data.id || data)
-            if (!data.id) return alert('Copy failure...')
-            loadFlowsAndFolders()
-          })
-        })
-      }
-    })
-  }
-
-  function deleteFlow (flowId) {
-    deleteFlowDialog(flowId, function(doDelete) {
-      if (!doDelete) return
-      $.ajax({
-        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
-        type: 'DELETE',
-        success: loadFlowsAndFolders()
-      })
-    })
-  }
-
-  function deleteFlowFolder (folderId) {
-    deleteFlowFolderDialog(folderId, function(doDelete) {
-      // todo: loop childfolders and move them up
-      // todo: Loop folders and move them up
-
-
-      if (!doDelete) return
-      $.ajax({
-        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`,
-        type: 'DELETE',
-        success: loadFlowsAndFolders()
-      })
-    })
-  }
-
-  function showFlowToggleButton (flowId) {
-    if (getFlow(flowId).enabled) {
-      $(`[data-flow-id=${flowId}] [data=label_disabled]`).html("")
-      $(`[data-flow-id=${flowId}] [data=toggle_btn] i`).removeClass('fa-square-o').addClass('fa-check-square-o')
-      if (!getFlow(flowId).broken) {
-        $(`[data-flow-id=${flowId}]`).removeClass("panel-default").addClass("panel-success")
-      }
-    } else {
-      $(`[data-flow-id=${flowId}] [data=label_disabled]`).html("DISABLED")
-      $(`[data-flow-id=${flowId}] [data=toggle_btn] i`).removeClass('fa-check-square-o').addClass('fa-square-o')
-      if (!getFlow(flowId).broken) {
-        $(`[data-flow-id=${flowId}]`).removeClass("panel-success").addClass("panel-default")
-      }
-    }
-  }
-
-  function updateFlowFolder (flowId, folderId) {
-    var saveFlow = {name: getFlow(flowId).name, folder: folderId}
-    console.log('save updateFlowFolder')
-    $.ajax({
-      url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
-      type: 'PUT',
-      data: JSON.stringify(saveFlow),
-      success: loadFlowsAndFolders()
-    })
-  }
-
-  function editFlow (flowId) {
-    editFlowDialog(flowId, function(newName, newFolder) {
-      if (newFolder === 'false') newFolder = null
-      var saveFlow = {name: newName.trim(), folder: newFolder}
-      if (saveFlow.name.length === 0) return
-      $.ajax({
-        url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
-        type: 'PUT',
-        data: JSON.stringify(saveFlow),
-        success: loadFlowsAndFolders()
-      })
-    })
-  }
-
-  function toggleFlow (flowId) {
+  async function toggleFlow (flowId) {
     flows.find(flow => flow.id === flowId).enabled = !getFlow(flowId).enabled
-    $.ajax({
-      url: `${setup.protocol}://${setup.ip}/api/manager/flow/flow/${flowId}`,
-      type: 'PUT',
-      data: JSON.stringify({enabled: getFlow(flowId).enabled}),
-      success: function(data) {
-        showFlowToggleButton(flowId)
-      }
-    })
+    await saveFlow(flowId, {enabled: getFlow(flowId).enabled})
+    showFlowToggleButton(flowId)
   }
 
   function copyFlowDialog (flowId, callback) {
@@ -805,8 +820,8 @@
         },{
           label: 'Copy',
           action: function (dialogRef) {
-            var newName = dialogRef.getModalBody().find('[id=copyName]').val()
-            var newFolder = dialogRef.getModalBody().find('[id=copyFolder]').val()
+            let newName = dialogRef.getModalBody().find('[id=copyName]').val()
+            let newFolder = dialogRef.getModalBody().find('[id=copyFolder]').val()
             dialogRef.close()
             callback(newName, newFolder)
           }
@@ -838,9 +853,19 @@
   }
 
   function deleteFlowFolderDialog (folderId, callback) {
+    let flowCount = flows.filter(flow => flow.folder === folderId).length
+    let folderCount = folders.filter(folder => folder.parent === folderId).length
+    let parentId = getFolder(folderId).parent
+    let deleteMessage = `Are you sure you want to delete folder <strong>${getFolder(folderId).name}</strong>?<br>`
+    if (flowCount + folderCount > 0) {
+      deleteMessage += `${flowCount} flow${flowCount === 1 ? '' : 's'}`
+      deleteMessage += ` and ${folderCount} folder${folderCount === 1 ? '' : 's'} in this folder will be moved to `
+      deleteMessage += parentId ? `parent flow ${getFolder(parentId).name}.` : 'the top level.'
+    }
+
     BootstrapDialog.show({
       title: 'Delete folder',
-      message: 'Are you sure you want to delete folder ' + getFolder(folderId).name + '?',
+      message: deleteMessage,
       buttons: [
         {
           label: 'Cancel',
@@ -910,8 +935,8 @@
     })
   }
 
-  function addFolder () {
-    addFolderDialog(function (newName, parent) {
+  function addFlowFolder () {
+    addFlowFolderDialog(function (newName, parent) {
       var newFolderInfo = {name: newName.trim()}
       if (newFolderInfo.name.length === 0) return
       if (parent !== "false") newFolderInfo.parent = parent
@@ -924,29 +949,26 @@
     })
   }
 
-  function editFolder () {
-    selectFolderDialog(function (folderId) {
+  function editFlowFolder () {
+    selectFlowFolderDialog(function (folderId) {
       if (!folderId) return
-      editFolderDialog(folderId, function (newName, parent) {
+      editFlowFolderDialog(folderId, async function (newName, parent) {
+        if (!newName || newName.trim().length === 0) return
         newFolderInfo = {
           name: newName.trim(),
           parent: parent === "false" ? null : parent
         }
-        if (newFolderInfo.name.length === 0) return
-        $.ajax({
-          url: `${setup.protocol}://${setup.ip}/api/manager/flow/flowfolder/${folderId}`,
-          type: 'PUT',
-          data: JSON.stringify(newFolderInfo),
-          success: loadFlowsAndFolders()
-        })
+        await saveFlowFolder(folderId, newFolderInfo)
+        await loadFlowsAndFolders()
       })
     })
   }
 
-  function addFolderDialog ( callback ) {
-    var message = $('.dialog_addFolder').clone()
-
-    buildFolderListSelector(message, 'editFolder')
+  function addFlowFolderDialog ( callback ) {
+    var message = $('.dialog_folder_edit').clone()
+    buildFolderListSelector(message, 'folderParent')
+    var folderSelected = $('#folders').treeview('getSelected').find(x => true)
+    if (folderSelected) $(message).find('[id=folderParent]').val(folderSelected.id)
 
     BootstrapDialog.show({
       title: 'Add folder',
@@ -961,21 +983,24 @@
         },{
           label: 'Save',
           action: function (dialogRef) {
-            var folderName = dialogRef.getModalBody().find('[id=addFolder]').val()
-            var editFolder = dialogRef.getModalBody().find('[id=editFolder]').val()
+            var folderName = dialogRef.getModalBody().find('[id=folderName]').val()
+            var folderParent = dialogRef.getModalBody().find('[id=folderParent]').val()
             dialogRef.close()
-            callback(folderName, editFolder)
+            callback(folderName, folderParent)
           }
         }
       ]
     })
   }
 
-  function selectFolderDialog ( callback ) {
-    var message = $('.dialog_selectFolder').clone()
-    buildFolderListSelector(message, 'editFolder')
+  function selectFlowFolderDialog ( callback ) {
+    var message = $('.dialog_folder_select').clone()
+    buildFolderListSelector(message, 'folder')
+    var folderSelected = $('#folders').treeview('getSelected').find(x => true)
+    if (folderSelected) $(message).find('[id=folder]').val(folderSelected.id)
+
     BootstrapDialog.show({
-      title: 'Select folder to edit',
+      title: 'Select folder...',
       message: message,
       buttons: [
         {
@@ -987,7 +1012,7 @@
         },{
           label: 'Next',
           action: function (dialogRef) {
-            var editFolder = dialogRef.getModalBody().find('[id=editFolder]').val()
+            var editFolder = dialogRef.getModalBody().find('[id=folder]').val()
             dialogRef.close()
             callback(editFolder)
           }
@@ -1009,12 +1034,11 @@
     loopNodes(getTree(excludeId))
   }
 
-  function editFolderDialog ( folderId, callback ) {
-    var message = $('.dialog_editFolder').clone()
-    $(message).find('[id=editName]').attr('value', `${getFolder(folderId).name}`)
-    buildFolderListSelector(message, 'editFolder', folderId)
-
-    $(message).find('[id=editFolder]').val((getFolder(folderId).parent || false).toString())
+  function editFlowFolderDialog ( folderId, callback ) {
+    var message = $('.dialog_folder_edit').clone()
+    $(message).find('[id=folderName]').attr('value', `${getFolder(folderId).name}`)
+    buildFolderListSelector(message, 'folderParent', folderId)
+    $(message).find('[id=folderParent]').val((getFolder(folderId).parent || false).toString())
     BootstrapDialog.show({
       title: 'Change the folder name or choose another parent folder',
       message: message,
@@ -1028,10 +1052,10 @@
         },{
           label: 'Save',
           action: function (dialogRef) {
-            var folderName = dialogRef.getModalBody().find('[id=editName]').val()
-            var editFolder = dialogRef.getModalBody().find('[id=editFolder]').val()
+            var folderName = dialogRef.getModalBody().find('[id=folderName]').val()
+            var folderParent = dialogRef.getModalBody().find('[id=folderParent]').val()
             dialogRef.close()
-            callback(folderName, editFolder)
+            callback(folderName, folderParent)
           }
         }
       ]
@@ -1071,18 +1095,17 @@
   // }
 
   function search () {
-    var value = $('[id=search]').val()
-    console.log('search', value)
-    if (!value) {
-      $('[data=flow]').show()
-    } else {
+    var searchText = $('[id=search]').val()
+    var folderSelected = $('#folders').hasClass('treeview') ? $('#folders').treeview('getSelected')[0] : undefined
+
+    $('[data=flow]').show()
+    if (searchText) {
       $('[data=flow]').hide()
-      if ($(`[data-folder-id="${value}"]`).length > 0) {
-        $(`[data-folder-id="${value}"]`).show()
-      } else {
-        $(`:icontains(${value})`).parents('#flows [data=flow]').show()
-      }
+      $(`:icontains(${searchText})`).parents('#flows [data=flow]').show()
     }
+    if (folderSelected) $('[data=flow]').not(`[data-folder-id="${folderSelected.id}"]`).hide()
+
+    $('[id=search]').attr('placeholder', (folderSelected) ? `Search in folder ${folderSelected.text}` : 'Search')
   }
 
   var testrun = {dialog: null, flowId: null, cards: null, sessionId: null, testCardIndex: null}
@@ -1213,7 +1236,7 @@
   }
 
   function getTree(excludeid) {
-    var selected = $('[id=search]').val()
+    var folderSelected = $('#folders').hasClass('treeview') ? $('#folders').treeview('getSelected')[0] : undefined
     function treeBuild (parent) {
       var tree = []
       if (parent && parent === excludeid) return tree
@@ -1221,7 +1244,7 @@
         var folder = folders[folderIndex]
         if (folder.parent === parent && folder.id !== excludeid) {
           var node = {text: folder.name, nodes: treeBuild(folder.id), order: folder.sorting, id: folder.id, state: {}}
-          if (selected === folder.id) node.state.selected = true
+          if (folderSelected && folderSelected.id === folder.id) node.state.selected = true, node.state.expanded = true
           if (node.nodes.length === 0) delete node.nodes
           var flowCount = flows.filter(flow => flow.folder === folder.id).length
           if (flowCount > 0) node.tags = [flowCount]
@@ -1259,7 +1282,6 @@
 
 
   function setFoldersDroppable () {
-    console.log('setFoldersDroppable', $('#folders li').length)
     $('#folders li').droppable({
       accept: '[data=flow]',
       tolerance: 'pointer',
@@ -1273,7 +1295,7 @@
       }
     })
   }
-//
+
 //   function setFlowCardsSortable() {
 //     $('[data=cards_action_then], [data=cards_action_else], [data=cards_condition_group1], [data=cards_condition_group2], [data=cards_condition_group3]').sortable({
 //       handle: '[data=move_card_btn]',
@@ -1307,7 +1329,11 @@
     e.preventDefault()
     $("#tokens").toggleClass("hide")
   })
-
+  $.fn.force_redraw = function () {
+    return this.hide(0, function () {
+      $(this).show()
+    })
+  }
   var HomeySocket
   function connectFlowManager (callback) {
     console.log('Connecting to Homey realtime manager...')
@@ -1349,19 +1375,23 @@
   }
 
   function showLoading (message = '') {
+    console.log('..' + message)
      $('#loader').modal('show')
      $('#loadtext').html(message)
+     $('#loadtext').force_redraw()
   }
+
   function hideLoading () {
     $('#loader').modal('hide')
   }
 
+  console.log(`Welcome to flowviewer v${version} - https://github.com/irritanterik/homey-realtime-logpage`)
+  showLoading('download scripts from Homey')
   $.getScript(`${setup.protocol}://${setup.ip}/socket.io/socket.io.js`, () => {
     console.log('socket script loaded')
     ready()
   })
 
-  console.log(`Welcome to flowviewer v${version} - https://github.com/irritanterik/homey-realtime-logpage`)
 </script>
 </body>
 </html>
