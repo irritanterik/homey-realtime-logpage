@@ -1,8 +1,9 @@
+<!DOCTYPE html>
 <html>
 <head>
   <title>Flow Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script> const version = '2.0.3' </script>
+  <script> const version = '2.0.4' </script>
   <script src="config.js"></script>
   <script src="https://code.jquery.com/jquery-2.2.3.min.js" integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo=" crossorigin="anonymous"></script>
   <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
@@ -302,6 +303,9 @@
     </div>
 </div>
   <script>
+
+  // todo https://getbootstrap.com/docs/4.3/components/navbar/
+
   var devices = []
   var cards
   var folders = []
@@ -704,7 +708,6 @@
   }
 
   function showFlows () {
-    console.log('Show flows')
     function loopFolders(folders) {
       folders.forEach(folder => addFolderFlows(folder))
     }
@@ -737,7 +740,6 @@
   }
 
   function showFolders () {
-    console.log('Show folders')
     $('#folders').treeview({
       data: getTree(),
       expandIcon: 'glyphicon glyphicon-chevron-right',
@@ -757,7 +759,6 @@
   }
 
   function showTokens () {
-    console.log('Show tokens')
     tokens.forEach(token => {
       addToken(token)
     })
@@ -781,13 +782,14 @@
     await loadFlowsAndFolders(false)
     connectFlowManager(() => {
       setTimeout(() => {
-        $('#flow_count').html(flows.length)
         $("#wrapper").toggleClass("toggled")
+        $('#flow_count').html(flows.length)
         setTooltips()
         hideLoading()
         // setFlowCardsSortable()
       }, 500)
     })
+    setTimeout(hideLoading, 5000) // failsave
   }
 
   async function updateFlowFolder (flowId, folderId) {
@@ -1336,7 +1338,7 @@
   }
   var HomeySocket
   function connectFlowManager (callback) {
-    console.log('Connecting to Homey realtime manager...')
+    console.log('Connecting to Homey realtime manager...', `${setup.protocol}://${setup.ip}`)
     var socket = io.connect(`${setup.protocol}://${setup.ip}`, {transports: ['websocket', 'polling']})
     socket.on('connect', function () {
       socket.emit("handshakeClient", {
@@ -1371,6 +1373,7 @@
     })
     socket.on('error',function (error) {
       console.log(socket)
+      return callback()
     })
   }
 
